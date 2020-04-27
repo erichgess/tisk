@@ -6,6 +6,7 @@ fn main() {
     let t = Task{
         id: 1,
         name: String::from("test"),
+        status: Status::Open,
     };
 
     match Task::write(&t, "1.yaml") {
@@ -20,9 +21,16 @@ fn main() {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+enum Status {
+    Open,
+    Closed,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct Task {
     id: u32,
     name: String,
+    status: Status,
 }
 
 impl Task {
