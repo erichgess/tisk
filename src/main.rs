@@ -271,9 +271,41 @@ impl TaskList {
     }
 
     fn print(&self) {
-        println!("{: <10}\t{: <10}", "ID", "Name");
+        use console::Style;
+        use console::Term;
+
+        // Get terminal dimensions so that we can compute how wide columns can be and 
+        // how to format text properly
+        // Assume that we'll always have at least 20 columns in the terminal (as even that small
+        // would be unuseable for a person.
+        let (_, cols) = Term::stdout().size_checked().expect("Could not get terminal details");
+
+        let id_width = 4;
+        let name_width:usize = if (cols - 5) < 16 {16} else {cols as usize-5}; // subtract id_width + 1 to account for a space between columns
+
+        // Print the column headers
+        let ul = Style::new().underlined();
+        println!("{0: <id_width$} {1: <name_width$}", 
+            ul.apply_to("ID"), ul.apply_to("Name"), 
+            id_width = id_width, name_width = name_width);
+
         for task in self.tasks.iter() {
-            println!("{: <10}\t{: <10}", task.id, task.name);
+            // Check the length of the name, if it is longer than `name_width` it will need to be
+            // printed on multiple lines
+            let mut cursor = 0;
+            while cursor < task.name.len() {
+                let end = if (cursor + name_width) > task.name.len() {task.name.len()} else {cursor + name_width};
+                let name_part = match task.name.get(cursor..end) { Some(ss) => ss, None => " "};
+                if cursor == 0 {
+                    print!("{0: <id_width$} ", task.id, id_width = id_width);
+                } else {
+                    print!("{0: <id_width$} ", "", id_width = id_width);
+                }
+                println!("{0: <name_width$}", 
+                    name_part,
+                    name_width = name_width);
+                cursor += name_width;
+            }
         }
     }
 }
