@@ -20,6 +20,9 @@ fn main() {
                 .index(1)
             )
         )
+        .subcommand(
+            App::new("init")
+        )
         .get_matches();
 
     let mut tasks = match get_files(".") {
@@ -52,6 +55,12 @@ fn main() {
                 Task::write(&task, &path).unwrap();
             },
         }
+    } else if args.subcommand_matches("init").is_some() {
+        match initialize() {
+            Ok(InitResult::Initialized) => println!("Initialized directory"),
+            Ok(InitResult::AlreadyInitialized) => println!("Already initialized"),
+            Err(why) => panic!("Failed to initialize directory: {}", why),
+        }
     } else {
         println!("list!");
         for task in tasks.tasks {
@@ -72,6 +81,21 @@ fn get_files(path: &str) -> std::io::Result<Vec<std::path::PathBuf>> {
     }
 
     Ok(files)
+}
+
+enum InitResult {
+    Initialized,
+    AlreadyInitialized,
+}
+
+fn initialize() -> std::io::Result<InitResult> {
+        match std::fs::read_dir("./.task") {
+            Ok(_) => Ok(InitResult::AlreadyInitialized),
+            Err(_) => match std::fs::create_dir("./.task") {
+                Err(why) => Err(why),
+                Ok(_) => Ok(InitResult::Initialized),
+            }
+        }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
