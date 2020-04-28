@@ -109,13 +109,6 @@ fn initialize() -> std::io::Result<InitResult> {
         }
 }
 
-fn get_task_path() -> Option<&'static str> {
-    match std::fs::read_dir("./.task") {
-        Ok(_) => Some("./.task"),
-        Err(_) => None,
-    }
-}
-
 fn up_search(file_name: &str) -> std::io::Result<Option<std::path::PathBuf>> {
     let path = std::fs::canonicalize(".")?;
 
