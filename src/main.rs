@@ -136,10 +136,6 @@ impl TaskList {
         }
     }
 
-    fn get(&self, id: u32) -> Option<&Task> {
-        self.tasks.iter().find(|t| t.id == id)
-    }
-
     fn get_mut(&mut self, id: u32) -> Option<&mut Task> {
         self.tasks.iter_mut().find(|t| t.id == id)
     }
