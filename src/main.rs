@@ -1,3 +1,5 @@
+use log4rs;
+use log::{debug};
 use clap::{App, Arg};
 use serde::{Serialize, Deserialize};
 use std::fs::File;
@@ -5,6 +7,9 @@ use std::io::prelude::*;
 use std::collections::HashSet;
 
 fn main() {
+    log4rs::init_file("config/log4rs.yaml", Default::default())
+        .expect("Failed to configure logger");
+
     let args = App::new("Tisk")
         .version(option_env!("CARGO_PKG_VERSION").unwrap_or(""))
         .about("Task Management with scoping")
@@ -30,13 +35,13 @@ fn main() {
         match initialize() {
             Ok(InitResult::Initialized) => println!("Initialized directory"),
             Ok(InitResult::AlreadyInitialized) => println!("Already initialized"),
-            Err(why) => panic!("Failed to initialize directory: {}", why),
+            Err(why) => panic!("Failed to initialize tisk project: {}", why),
         }
     } else {
-        let mut task_path = match up_search(".task") {
+        let task_path = match up_search(".task") {
             Ok(path) => match path {
                 Some(p) => p,
-                None => panic!("Invalid task project, could not found .task in this directory or any parent directory"),
+                None => panic!("Invalid tisk project, could not found .task in this directory or any parent directory"),
             },
             Err(why) => panic!("Failure while searching for .task dir: {}", why),
         };
@@ -49,24 +54,22 @@ fn main() {
         };
 
         if let Some(ref matches) = args.subcommand_matches("add") {
+            debug!("Adding new task to task list");
             let name =  matches.value_of("input").unwrap();
-            let t = tasks.add_task(name).unwrap();
-            match Task::write(&t, &task_path) {
-                Ok(_) => (),
-                Err(why) => panic!(why),
-            }
+            tasks.add_task(name).expect("Failed to create new task");
         } else if let Some(ref done) = args.subcommand_matches("close") {
             let id: u32 = done.value_of("ID").unwrap().parse().unwrap();
-            match tasks.close_task(id) {
-                None => println!("No task with ID {} found", id),
-                Some(task) => {
-                    Task::write(task, &task_path).unwrap();
-                },
-            }
+            debug!("Closing task with ID: {}", id);
+            tasks.close_task(id).expect("Could not find given ID");
         } else {
-            for task in tasks.tasks {
+            for task in &tasks.tasks {
                 println!("{:?}", task);
             }
+        }
+        debug!("Writing tasks");
+        match tasks.write_all(&task_path) {
+            Ok(_) => (),
+            Err(why) => panic!("Failed to write tasks: {}", why),
         }
     }
 }
@@ -213,12 +216,14 @@ impl TaskList {
      * If no task is found with the given ID then return `None`.
      */
     fn get_mut(&mut self, id: u32) -> Option<&mut Task> {
+        debug!("Get mut");
         let task = self.tasks.iter_mut().find(|t| t.id == id);
 
         // Assume that any call to get a mutable reference to a task
         // will result in that task being modified.
         match &task {
             Some(task) => {
+                debug!("Adding id to the set of modified tasks");
                 self.modified_tasks.insert(task.id);
             },
             None => ()
@@ -238,6 +243,7 @@ impl TaskList {
             status: Status::Open,
         };
         self.tasks.push(t);
+        self.modified_tasks.insert(id);
         self.get(id)
     }
 
@@ -252,6 +258,7 @@ impl TaskList {
     }
 
     fn write_all(self, task_path: &std::path::PathBuf) -> std::io::Result<u32> {
+        debug!("Tasks to write: {}", self.modified_tasks.len());
         let mut count = 0;
         for id in self.modified_tasks.iter() {
             match self.get(*id) {
