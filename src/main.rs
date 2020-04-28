@@ -2,6 +2,7 @@ use clap::{App, Arg};
 use serde::{Serialize, Deserialize};
 use std::fs::File;
 use std::io::prelude::*;
+use std::collections::HashSet;
 
 fn main() {
     let args = App::new("Tisk")
@@ -31,8 +32,7 @@ fn main() {
             Ok(InitResult::AlreadyInitialized) => println!("Already initialized"),
             Err(why) => panic!("Failed to initialize directory: {}", why),
         }
-    } else 
-    {
+    } else {
         let mut task_path = match up_search(".task") {
             Ok(path) => match path {
                 Some(p) => p,
@@ -50,13 +50,7 @@ fn main() {
 
         if let Some(ref matches) = args.subcommand_matches("add") {
             let name =  matches.value_of("input").unwrap();
-            let t = Task{
-                id: tasks.next_id(),
-                name: String::from(name),
-                status: Status::Open,
-            };
-
-            task_path.push(format!("{}.yaml", t.id));
+            let t = tasks.add_task(name).unwrap();
             match Task::write(&t, &task_path) {
                 Ok(_) => (),
                 Err(why) => panic!(why),
@@ -66,7 +60,6 @@ fn main() {
             match tasks.close_task(id) {
                 None => println!("No task with ID {} found", id),
                 Some(task) => {
-                    task_path.push(format!("{}.yaml", id));
                     Task::write(task, &task_path).unwrap();
                 },
             }
@@ -159,6 +152,8 @@ struct Task {
 
 impl Task {
     fn write(task: &Task, path: &std::path::PathBuf) -> std::io::Result<()> {
+        let mut path = std::path::PathBuf::from(path);
+        path.push(format!("{}.yaml", task.id));
         let mut file = File::create(path)?;
 
         let s = serde_yaml::to_string(task).unwrap();
@@ -180,6 +175,7 @@ impl Task {
 
 struct TaskList {
     tasks: Vec<Task>,
+    modified_tasks: HashSet<u32>,
 }
 
 impl TaskList {
@@ -189,7 +185,10 @@ impl TaskList {
             let task = Task::read(&path)?;
             tasks.push(task);
         }
-        Ok(TaskList{tasks})
+        Ok(TaskList{
+            tasks,
+            modified_tasks: HashSet::new(),
+        })
     }
 
     fn next_id(&self) -> u32 {
@@ -206,8 +205,40 @@ impl TaskList {
         }
     }
 
+    /**
+     * Searches the `TaskList` for a task with the given ID.  If a matching
+     * task is found: then return a mutable reference to that task and mark
+     * the task as modified.
+     *
+     * If no task is found with the given ID then return `None`.
+     */
     fn get_mut(&mut self, id: u32) -> Option<&mut Task> {
-        self.tasks.iter_mut().find(|t| t.id == id)
+        let task = self.tasks.iter_mut().find(|t| t.id == id);
+
+        // Assume that any call to get a mutable reference to a task
+        // will result in that task being modified.
+        match &task {
+            Some(task) => {
+                self.modified_tasks.insert(task.id);
+            },
+            None => ()
+        }
+        task
+    }
+
+    fn get(&self, id: u32) -> Option<&Task> {
+        self.tasks.iter().find(|t| t.id == id)
+    }
+
+    fn add_task(&mut self, name: &str) -> Option<&Task> {
+        let id = self.next_id();
+        let t = Task{
+            id: id,
+            name: String::from(name),
+            status: Status::Open,
+        };
+        self.tasks.push(t);
+        self.get(id)
     }
 
     fn close_task(&mut self, id: u32) -> Option<&Task> {
@@ -218,5 +249,19 @@ impl TaskList {
                 Some(task)
             }
         }
+    }
+
+    fn write_all(self, task_path: &std::path::PathBuf) -> std::io::Result<u32> {
+        let mut count = 0;
+        for id in self.modified_tasks.iter() {
+            match self.get(*id) {
+                Some(task) => {
+                    Task::write(task, &task_path)?;
+                    count += 1;
+                },
+                None => (),
+            }
+        }
+        Ok(count)
     }
 }
