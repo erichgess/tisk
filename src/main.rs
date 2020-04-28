@@ -33,12 +33,15 @@ fn main() {
         }
     } else 
     {
-        let task_path = match get_task_path() {
-            Some(path) => path,
-            None => panic!("Not a task project: no .task directory found in this directory or a parent dirctory"),
+        let mut task_path = match up_search(".task") {
+            Ok(path) => match path {
+                Some(p) => p,
+                None => panic!("Invalid task project, could not found .task in this directory or any parent directory"),
+            },
+            Err(why) => panic!("Failure while searching for .task dir: {}", why),
         };
 
-        let mut tasks = match get_files(task_path) {
+        let mut tasks = match get_files(&task_path) {
             Err(why) => panic!("Failed to get YAML files: {}", why),
             Ok(files) => {
                 TaskList::read_tasks(files).unwrap()
@@ -53,8 +56,9 @@ fn main() {
                 status: Status::Open,
             };
 
-            let path = std::path::PathBuf::from(format!("{}/{}.yaml", task_path, t.id));
-            match Task::write(&t, &path) {
+            //let path = std::path::PathBuf::from(format!("{}/{}.yaml", task_path, t.id));
+            task_path.push(format!("{}.yaml", t.id));
+            match Task::write(&t, &task_path) {
                 Ok(_) => (),
                 Err(why) => panic!(why),
             }
@@ -64,8 +68,8 @@ fn main() {
                 None => println!("No task with ID {} found", id),
                 Some(mut task) => {
                     task.status = Status::Closed;
-                    let path = std::path::PathBuf::from(format!("{}/{}.yaml", task_path, id));
-                    Task::write(&task, &path).unwrap();
+                    task_path.push(format!("{}.yaml", id));
+                    Task::write(&task, &task_path).unwrap();
                 },
             }
         } else {
@@ -76,7 +80,7 @@ fn main() {
     }
 }
 
-fn get_files(path: &str) -> std::io::Result<Vec<std::path::PathBuf>> {
+fn get_files(path: &std::path::PathBuf) -> std::io::Result<Vec<std::path::PathBuf>> {
     use std::fs;
 
     let contents = fs::read_dir(path)?;
