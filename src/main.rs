@@ -56,7 +56,6 @@ fn main() {
                 status: Status::Open,
             };
 
-            //let path = std::path::PathBuf::from(format!("{}/{}.yaml", task_path, t.id));
             task_path.push(format!("{}.yaml", t.id));
             match Task::write(&t, &task_path) {
                 Ok(_) => (),
@@ -64,12 +63,11 @@ fn main() {
             }
         } else if let Some(ref done) = args.subcommand_matches("close") {
             let id: u32 = done.value_of("ID").unwrap().parse().unwrap();
-            match tasks.get_mut(id) {
+            match tasks.close_task(id) {
                 None => println!("No task with ID {} found", id),
-                Some(mut task) => {
-                    task.status = Status::Closed;
+                Some(task) => {
                     task_path.push(format!("{}.yaml", id));
-                    Task::write(&task, &task_path).unwrap();
+                    Task::write(task, &task_path).unwrap();
                 },
             }
         } else {
@@ -210,5 +208,15 @@ impl TaskList {
 
     fn get_mut(&mut self, id: u32) -> Option<&mut Task> {
         self.tasks.iter_mut().find(|t| t.id == id)
+    }
+
+    fn close_task(&mut self, id: u32) -> Option<&Task> {
+        match self.get_mut(id) {
+            None => None,
+            Some(task) => {
+                task.status = Status::Closed;
+                Some(task)
+            }
+        }
     }
 }
