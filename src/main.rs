@@ -62,9 +62,7 @@ fn main() {
             debug!("Closing task with ID: {}", id);
             tasks.close_task(id).expect("Could not find given ID");
         } else {
-            for task in &tasks.tasks {
-                println!("{:?}", task);
-            }
+            tasks.print();
         }
         debug!("Writing tasks");
         match tasks.write_all(&task_path) {
@@ -270,5 +268,12 @@ impl TaskList {
             }
         }
         Ok(count)
+    }
+
+    fn print(&self) {
+        println!("{: <10}\t{: <10}", "ID", "Name");
+        for task in self.tasks.iter() {
+            println!("{: <10}\t{: <10}", task.id, task.name);
+        }
     }
 }
