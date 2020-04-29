@@ -34,6 +34,14 @@ fn main() {
                 Arg::with_name("all")
                     .help("Display all tasks, regardless of state")
                     .long("all"),
+            ).arg(
+                Arg::with_name("closed")
+                    .help("Display all closed tasks")
+                    .long("closed"),
+            ).arg(
+                Arg::with_name("open")
+                    .help("Display all open tasks")
+                    .long("open"),
             ),
         )
         .subcommand(App::new("init"))
@@ -62,7 +70,7 @@ fn main() {
         if let Some(ref matches) = args.subcommand_matches("add") {
             debug!("Adding new task to task list");
             let name = matches.value_of("input").unwrap();
-            tasks.add_task(name).expect("Failed to create new task");
+            tasks.add_task(name);
         } else if let Some(ref done) = args.subcommand_matches("close") {
             let id: u32 = done.value_of("ID").unwrap().parse().unwrap();
             debug!("Closing task with ID: {}", id);
@@ -71,6 +79,10 @@ fn main() {
             if let Some(ref matches) = args.subcommand_matches("list") {
                 if matches.is_present("all") {
                     let mut task_slice = tasks.get_all();
+                    task_slice.sort_by(|a,b| a.id().cmp(&b.id()));
+                    tisk::TaskList::print(task_slice);
+                }  else if matches.is_present("closed") {
+                    let mut task_slice = tasks.get_closed();
                     task_slice.sort_by(|a,b| a.id().cmp(&b.id()));
                     tisk::TaskList::print(task_slice);
                 } else {

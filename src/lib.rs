@@ -84,7 +84,7 @@ pub enum Status {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Task {
-    pub id: u32,
+    id: u32,
     name: String,
     status: Status,
 }
@@ -129,6 +129,12 @@ pub struct TaskList {
 }
 
 impl TaskList {
+    pub fn new() -> TaskList {
+        TaskList{
+            tasks: vec![],
+            modified_tasks: HashSet::new(),
+        }
+    }
     pub fn read_tasks(path: &std::path::PathBuf) -> std::io::Result<TaskList> {
         let paths = get_files(path)?;
         let mut tasks = vec![];
@@ -183,7 +189,7 @@ impl TaskList {
         self.tasks.iter().find(|t| t.id == id)
     }
 
-    pub fn add_task(&mut self, name: &str) -> Option<&Task> {
+    pub fn add_task(&mut self, name: &str) -> u32 {
         let id = self.next_id();
         let t = Task{
             id: id,
@@ -192,7 +198,8 @@ impl TaskList {
         };
         self.tasks.push(t);
         self.modified_tasks.insert(id);
-        self.get(id)
+
+        id
     }
 
     pub fn close_task(&mut self, id: u32) -> Option<&Task> {
@@ -268,6 +275,10 @@ impl TaskList {
 
     pub fn get_open(&self) -> Vec<&Task> {
         self.filter(Status::Open)
+    }
+
+    pub fn get_closed(&self) -> Vec<&Task> {
+        self.filter(Status::Closed)
     }
 
     pub fn filter(&self, status: Status) -> Vec<&Task> {
@@ -442,5 +453,26 @@ mod tests {
         assert_eq!("jumped ", lines[3]);
         assert_eq!("over the ", lines[4]);
         assert_eq!("lazy dog", lines[5]);
+    }
+
+    #[test]
+    fn add_task() {
+        let tasks;
+        {
+            let mut mtasks = TaskList::new();
+            mtasks.add_task("test");
+            mtasks.add_task("test 2");
+            tasks = mtasks;
+        }
+
+        let t = tasks.get(1).unwrap();
+        assert_eq!(1, t.id());
+        assert_eq!("test", t.name());
+        assert_eq!(Status::Open, t.status());
+
+        let t2 = tasks.get(2).unwrap();
+        assert_eq!(2, t2.id());
+        assert_eq!("test 2", t2.name());
+        assert_eq!(Status::Open, t2.status());
     }
 }
