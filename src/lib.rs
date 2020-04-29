@@ -124,7 +124,7 @@ impl Task {
         let mut s = String::new();
         file.read_to_string(&mut s)?;
 
-        let y = serde_yaml::from_str::<Task>(&s).unwrap();
+        let y = serde_yaml::from_str::<Task>(&s).unwrap();  // TODO: pass this result up to the caller
         Ok(y)
     }
 }
