@@ -321,22 +321,20 @@ impl TaskList {
         let mut start = 0;
         let mut end = 0;
 
-        while index < text.len() {
-            start = end;
-            end = start;
-            while let Some(c) = chars.next() {
-                index += 1;
+        while let Some(c) = chars.next() {
+            index += 1;
 
-                if c.is_whitespace() && (index - start) <= width {
-                    end = index;
-                } else if (index - start) > width {
-                    break;
-                }
-
-                if index == text.len() {
-                    end = index;
-                }
+            if c.is_whitespace() && (index - start) <= width {
+                end = index;
+            } else if (index - start) > width {
+                breaks.push((start, end));
+                start = end;
+                end = start;
             }
+        }
+
+        if end < text.len() {
+            end = index;
             breaks.push((start, end));
         }
 
