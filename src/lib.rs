@@ -62,7 +62,7 @@ pub fn initialize() -> std::io::Result<InitResult> {
         }
 }
 
-pub fn get_files(path: &std::path::PathBuf) -> std::io::Result<Vec<std::path::PathBuf>> {
+fn get_files(path: &std::path::PathBuf) -> std::io::Result<Vec<std::path::PathBuf>> {
     use std::fs;
 
     let contents = fs::read_dir(path)?;
@@ -118,10 +118,11 @@ pub struct TaskList {
 }
 
 impl TaskList {
-    pub fn read_tasks(paths: Vec<std::path::PathBuf>) -> std::io::Result<TaskList> {
+    pub fn read_tasks(path: &std::path::PathBuf) -> std::io::Result<TaskList> {
+        let paths = get_files(path)?;
         let mut tasks = vec![];
-        for path in paths.into_iter() {
-            let task = Task::read(&path)?;
+        for p in paths.into_iter() {
+            let task = Task::read(&p)?;
             tasks.push(task);
         }
         Ok(TaskList{

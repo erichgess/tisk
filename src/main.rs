@@ -43,10 +43,10 @@ fn main() {
             Err(why) => panic!("Failure while searching for .task dir: {}", why),
         };
 
-        let mut tasks = match tisk::get_files(&task_path) { //TODO: this should be owned by TaskList
-            Err(why) => panic!("Failed to get YAML files: {}", why),
-            Ok(files) => {
-                tisk::TaskList::read_tasks(files).unwrap()
+        let mut tasks = match tisk::TaskList::read_tasks(&task_path) {
+            Err(why) => panic!("Failed to read tasks: {}", why),
+            Ok(tasks) => {
+                tasks
             }
         };
 
