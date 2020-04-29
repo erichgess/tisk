@@ -1,11 +1,30 @@
 use log4rs;
-use log::{debug};
+use log4rs::{
+    append::{
+        console::{ConsoleAppender},
+    },
+    config::{Appender, Root},
+};
+use log::{debug, LevelFilter};
 use clap::{App, Arg};
 extern crate tisk;
 
+fn configure_logger() {
+    match log4rs::init_file("config/log4rs.yaml", Default::default()) {
+        Err(_) => {
+            let stdout = ConsoleAppender::builder().build();
+            let config = log4rs::config::Config::builder()
+                .appender(Appender::builder().build("stdout", Box::new(stdout)))
+                .build(Root::builder().appender("stdout").build(LevelFilter::Info))
+                .unwrap();
+            log4rs::init_config(config).unwrap();
+            },
+        Ok(_) => (),
+    }
+}
+
 fn main() {
-    log4rs::init_file("config/log4rs.yaml", Default::default())
-        .expect("Failed to configure logger");
+    configure_logger();
 
     let args = App::new("Tisk")
         .version(option_env!("CARGO_PKG_VERSION").unwrap_or(""))
