@@ -82,3 +82,64 @@ fn test_initialize() {
 
     teardown("test_init");
 }
+
+#[test]
+fn test_add_task() {
+    let root_dir = setup("test_add_task");
+    let proj_dir = format!("{}/a", root_dir);
+    let expected_task_dir = format!("{}/.task", proj_dir);
+    let original_dir = env::current_dir().unwrap();
+
+    env::set_current_dir(&proj_dir).unwrap();
+
+    let result = tisk::initialize().unwrap();
+    assert_eq!(tisk::InitResult::Initialized, result);
+
+    let task_path = tisk::up_search(".", ".task").unwrap().unwrap();
+    {
+        // read a task project 
+        // and add a new task and write the new task
+        let mut tasks = tisk::TaskList::read_tasks(&task_path).unwrap();
+        tasks.add_task("a test task").expect("failed to add task");
+        tasks.write_all(&task_path).unwrap();
+    }
+
+    {
+        // Load the task project again 
+        // and validate that the expected task is there
+        // then close the task
+        let mut tasks = tisk::TaskList::read_tasks(&task_path).unwrap();
+        let task = tasks.get(1).unwrap();
+        assert_eq!("a test task", task.name());
+        assert_eq!(tisk::Status::Open, task.status());
+        tasks.close_task(1).unwrap();
+        tasks.write_all(&task_path).unwrap();
+    }
+
+    {
+        // Load the task project again 
+        // and validate that the task was closed
+        // then add a new task
+        let mut tasks = tisk::TaskList::read_tasks(&task_path).unwrap();
+        let task = tasks.get(1).unwrap();
+        assert_eq!("a test task", task.name());
+        assert_eq!(tisk::Status::Closed, task.status());
+        tasks.add_task("a second test task").expect("failed to add task");
+        tasks.write_all(&task_path).unwrap();
+    }
+
+    {
+        // Load the task project again 
+        // and validate that the two tasks are there
+        let tasks = tisk::TaskList::read_tasks(&task_path).unwrap();
+        let task = tasks.get(1).unwrap();
+        assert_eq!("a test task", task.name());
+        assert_eq!(tisk::Status::Closed, task.status());
+
+        let task = tasks.get(2).unwrap();
+        assert_eq!("a second test task", task.name());
+        assert_eq!(tisk::Status::Open, task.status());
+    }
+
+    teardown("test_add_task");
+}

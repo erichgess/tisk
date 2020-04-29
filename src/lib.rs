@@ -76,8 +76,8 @@ fn get_files(path: &std::path::PathBuf) -> std::io::Result<Vec<std::path::PathBu
     Ok(files)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-enum Status {
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+pub enum Status {
     Open,
     Closed,
 }
@@ -90,6 +90,14 @@ pub struct Task {
 }
 
 impl Task {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn status(&self) -> Status {
+        self.status
+    }
+
     fn write(task: &Task, path: &std::path::PathBuf) -> std::io::Result<()> {
         let mut path = std::path::PathBuf::from(path);
         path.push(format!("{}.yaml", task.id));
@@ -168,7 +176,7 @@ impl TaskList {
         task
     }
 
-    fn get(&self, id: u32) -> Option<&Task> {
+    pub fn get(&self, id: u32) -> Option<&Task> {
         self.tasks.iter().find(|t| t.id == id)
     }
 
