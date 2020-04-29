@@ -335,10 +335,7 @@ impl TaskList {
                 word_end = index;
                 let word_len = word_end - word_start;
 
-                //print!("{}, {}; Word: {}; ", start, end, text.get(word_start..word_end).unwrap());
-
                 if word_len + (end - start) <= width {
-                    //print!("Add word");
                     end = word_end;
                     if index == text.len() {
                         breaks.push((start, end));
@@ -346,14 +343,11 @@ impl TaskList {
                 } else {
                     let splittable = if split_limit < width {word_len > split_limit} else {true};
                     if  splittable && word_len + (end - start) > width {
-                        //print!("Split");
                         end = word_start + (width - (end-start));
                         breaks.push((start, end));
                         start = end;
-                        //word_end = end;
                         end = word_end;
                     } else {
-                        //print!("New line");
                         breaks.push((start, end));
                         start = word_start;
                         end = word_end;
@@ -364,22 +358,8 @@ impl TaskList {
                 }
                 
                 word_start = word_end;
-                //println!();
             }
-
-            /*if c.is_whitespace() && (index - start) <= width {
-                end = index;
-            } else if (index - start) > width {
-                breaks.push((start, end));
-                start = end;
-                end = start;
-            }*/
         }
-
-        /*if end < text.len() {
-            end = index;
-            breaks.push((start, end));
-        }*/
 
         let mut lines = vec![];
         for b in breaks {
