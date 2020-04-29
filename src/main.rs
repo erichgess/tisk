@@ -63,7 +63,7 @@ fn main() {
             tasks.close_task(id).expect("Could not find given ID");
         } else {
             let s = String::from("the quick brown fox jumped over the lazy dog arglebargley");
-            let lines = TaskList::format_to_column(&s, 10);
+            let lines = TaskList::format_to_column(&s, 10, 5);
             for line in lines.iter() {
                 println!("{}", line);
             }
@@ -275,6 +275,7 @@ impl TaskList {
         Ok(count)
     }
 
+    #[allow(dead_code)]
     fn print(&self) {
         use console::Style;
         use console::Term;
@@ -297,7 +298,7 @@ impl TaskList {
         for task in self.tasks.iter() {
             // Check the length of the name, if it is longer than `name_width` it will need to be
             // printed on multiple lines
-            let lines = TaskList::format_to_column(&task.name, name_width);
+            let lines = TaskList::format_to_column(&task.name, name_width, 5);
             let mut first_line = true;
             for line in lines {
                 if first_line {
@@ -319,14 +320,14 @@ impl TaskList {
      * attempt to break lines at spaces but if a word is longer than
      * the given column width it will split on the word.
      */
-    fn format_to_column(text: &String, width: usize) -> Vec<&str>{
+    fn format_to_column(text: &String, width: usize, split_limit: usize) -> Vec<&str>{
         let mut index = 0;
         let mut chars = text.chars();
         let mut breaks = vec![];
         let mut start = 0;
         let mut end = 0;
         let mut word_start = 0;
-        let mut word_end = 0;
+        let mut word_end;
 
         while let Some(c) = chars.next() {
             index += 1;
@@ -339,32 +340,36 @@ impl TaskList {
                 word_end = index;
                 let word_len = word_end - word_start;
 
-                print!("{}, {}; Word: {}; ", start, end, text.get(word_start..word_end).unwrap());
+                //print!("{}, {}; Word: {}; ", start, end, text.get(word_start..word_end).unwrap());
 
                 if word_len + (end - start) <= width {
-                    print!("Add word");
+                    //print!("Add word");
                     end = word_end;
                     if index == text.len() {
                         breaks.push((start, end));
                     }
                 } else {
-                    if  word_len + (end - start) > width {
-                        print!("Split");
+                    let splittable = if split_limit < width {word_len > split_limit} else {true};
+                    if  splittable && word_len + (end - start) > width {
+                        //print!("Split");
                         end = word_start + (width - (end-start));
                         breaks.push((start, end));
                         start = end;
-                        word_end = end;
+                        //word_end = end;
                         end = word_end;
                     } else {
-                        print!("New line");
+                        //print!("New line");
                         breaks.push((start, end));
                         start = word_start;
                         end = word_end;
                     }
+                    if end == text.len() {
+                        breaks.push((start, end));
+                    }
                 }
                 
                 word_start = word_end;
-                println!();
+                //println!();
             }
 
             /*if c.is_whitespace() && (index - start) <= width {
@@ -388,5 +393,90 @@ impl TaskList {
             lines.push(text.get(start..end).unwrap());
         }
         lines
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn split_short_words() {
+        let text = String::from("the quick brown fox");
+        let lines = TaskList::format_to_column(&text, 10, 5);
+        assert_eq!(2, lines.len());  
+        //          1234567890    <- column numbers
+        assert_eq!("the quick ", lines[0]);
+        assert_eq!("brown fox", lines[1]);
+    }
+
+    #[test]
+    fn no_split() {
+        let text = String::from("the quick");
+        let lines = TaskList::format_to_column(&text, 10, 5);
+        assert_eq!(1, lines.len());  
+        //          1234567890    <- column numbers
+        assert_eq!("the quick", lines[0]);
+    }
+
+    #[test]
+    fn split_many_words() {
+        let text = String::from("the quick brown fox jumped over the lazy dog");
+        let lines = TaskList::format_to_column(&text, 10, 5);
+        assert_eq!(5, lines.len());  
+        //          1234567890    <- column numbers
+        assert_eq!("the quick ", lines[0]);
+        assert_eq!("brown fox ", lines[1]);
+        assert_eq!("jumped ", lines[2]);
+        assert_eq!("over the ", lines[3]);
+        assert_eq!("lazy dog", lines[4]);
+    }
+
+    #[test]
+    fn split_word_longer_than_min_but_smaller_than_column_width() {
+        let text = String::from("the quick brown fox fast jumped over the lazy dog");
+        let lines = TaskList::format_to_column(&text, 10, 5);
+        assert_eq!(6, lines.len());  
+        //          1234567890    <- column numbers
+        assert_eq!("the quick ", lines[0]);
+        assert_eq!("brown fox ", lines[1]);
+        assert_eq!("fast jumpe", lines[2]);
+        assert_eq!("d over ", lines[3]);
+        assert_eq!("the lazy ", lines[4]);
+        assert_eq!("dog", lines[5]);
+    }
+
+    #[test]
+    fn split_word_longer_than_column_width() {
+        let text = String::from("argleybargley");
+        let lines = TaskList::format_to_column(&text, 10, 5);
+        assert_eq!(2, lines.len());  
+        //          1234567890    <- column numbers
+        assert_eq!("argleybarg", lines[0]);
+        assert_eq!("ley", lines[1]);
+    }
+
+    #[test]
+    fn split_word_longer_than_column_width_shorter_than_min_word() {
+        let text = String::from("bark");
+        let lines = TaskList::format_to_column(&text, 3, 5);
+        assert_eq!(2, lines.len());  
+        //          123    <- column numbers
+        assert_eq!("bar", lines[0]);
+        assert_eq!("k", lines[1]);
+    }
+
+    #[test]
+    fn split_word_change_limit() {
+        let text = String::from("the quick brown fox fast jumped over the lazy dog");
+        let lines = TaskList::format_to_column(&text, 10, 7);
+        assert_eq!(6, lines.len());  
+        //          1234567890    <- column numbers
+        assert_eq!("the quick ", lines[0]);
+        assert_eq!("brown fox ", lines[1]);
+        assert_eq!("fast ", lines[2]);
+        assert_eq!("jumped ", lines[3]);
+        assert_eq!("over the ", lines[4]);
+        assert_eq!("lazy dog", lines[5]);
     }
 }
