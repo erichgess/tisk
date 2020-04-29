@@ -1,3 +1,6 @@
+extern crate chrono;
+
+use chrono::prelude::*;
 use log::{debug};
 use serde::{Serialize, Deserialize};
 use std::fs::File;
@@ -87,6 +90,9 @@ pub struct Task {
     id: u32,
     name: String,
     status: Status,
+
+    #[serde(default = "Utc::now")]
+    created_at: DateTime<Utc>,
 }
 
 impl Task {
@@ -195,6 +201,7 @@ impl TaskList {
             id: id,
             name: String::from(name),
             status: Status::Open,
+            created_at: Utc::now(),
         };
         self.tasks.push(t);
         self.modified_tasks.insert(id);
@@ -237,14 +244,15 @@ impl TaskList {
         // would be unuseable for a person.
         let (_, cols) = Term::stdout().size_checked().expect("Could not get terminal details");
 
-        let id_width = 4;
-        let name_width:usize = if (cols - 5) < 16 {16} else {cols as usize-5}; // subtract id_width + 1 to account for a space between columns
+        let id_width:usize = 4;
+        let date_width:usize = 10;  // YYYY-mm-dd
+        let name_width:usize = if (cols as usize - (id_width+1)) < 16 {16} else {cols as usize - (id_width+1)-(date_width+1)}; // subtract id_width + 1 to account for a space between columns
 
         // Print the column headers
         let ul = Style::new().underlined();
-        println!("{0: <id_width$} {1: <name_width$}", 
-            ul.apply_to("ID"), ul.apply_to("Name"), 
-            id_width = id_width, name_width = name_width);
+        println!("{0: <id_width$} {1: <date_width$} {2: <name_width$}", 
+            ul.apply_to("ID"), ul.apply_to("Date"), ul.apply_to("Name"), 
+            id_width = id_width, date_width = date_width, name_width = name_width);
 
         for task in tasks.iter() {
             // Check the length of the name, if it is longer than `name_width` it will need to be
@@ -254,8 +262,11 @@ impl TaskList {
             for line in lines {
                 if first_line {
                     print!("{0: <id_width$} ", task.id, id_width = id_width);
+                    let date = task.created_at.format("%Y-%m-%d");
+                    print!("{0: <date_width$} ", date, date_width = date_width);
                 } else {
                     print!("{0: <id_width$} ", "", id_width = id_width);
+                    print!("{0: <date_width$} ", "", date_width = date_width);
                 }
                 println!("{0: <name_width$}", 
                     line,
