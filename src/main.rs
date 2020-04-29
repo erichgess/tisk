@@ -88,12 +88,14 @@ fn main() {
         } else {
             if let Some(ref matches) = args.subcommand_matches("list") {
                 if matches.is_present("all") {
-                    tasks.print(true);
+                    tasks.print();
                 } else {
-                    tasks.print(false);
+                    let open_tasks = tasks.filter(tisk::Status::Open);
+                    tisk::TaskList::print_tasks(open_tasks);
                 }
             } else {
-                tasks.print(false);
+                let open_tasks = tasks.filter(tisk::Status::Open);
+                tisk::TaskList::print_tasks(open_tasks);
             }
         }
         debug!("Writing tasks");
