@@ -84,7 +84,7 @@ pub enum Status {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Task {
-    id: u32,
+    pub id: u32,
     name: String,
     status: Status,
 }
@@ -96,6 +96,10 @@ impl Task {
 
     pub fn status(&self) -> Status {
         self.status
+    }
+
+    pub fn id(&self) -> u32 {
+        self.id
     }
 
     fn write(task: &Task, path: &std::path::PathBuf) -> std::io::Result<()> {
@@ -117,7 +121,6 @@ impl Task {
         let y = serde_yaml::from_str::<Task>(&s).unwrap();
         Ok(y)
     }
-
 }
 
 pub struct TaskList {

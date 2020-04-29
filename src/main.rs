@@ -70,12 +70,18 @@ fn main() {
         } else {
             if let Some(ref matches) = args.subcommand_matches("list") {
                 if matches.is_present("all") {
-                    tisk::TaskList::print(tasks.get_all());
+                    let mut task_slice = tasks.get_all();
+                    task_slice.sort_by(|a,b| a.id().cmp(&b.id()));
+                    tisk::TaskList::print(task_slice);
                 } else {
-                    tisk::TaskList::print(tasks.get_open());
+                    let mut task_slice = tasks.get_open();
+                    task_slice.sort_by(|a,b| a.id().cmp(&b.id()));
+                    tisk::TaskList::print(task_slice);
                 }
             } else {
-                tisk::TaskList::print(tasks.get_open());
+                let mut task_slice = tasks.get_open();
+                task_slice.sort_by(|a,b| a.id().cmp(&b.id()));
+                tisk::TaskList::print(task_slice);
             }
         }
         debug!("Writing tasks");
