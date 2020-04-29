@@ -62,7 +62,12 @@ fn main() {
             debug!("Closing task with ID: {}", id);
             tasks.close_task(id).expect("Could not find given ID");
         } else {
-            tasks.print();
+            let s = String::from("the quick brown fox jumped over the lazy dog arglebargley");
+            let lines = TaskList::format_to_column(&s, 10);
+            for line in lines.iter() {
+                println!("{}", line);
+            }
+            //tasks.print();
         }
         debug!("Writing tasks");
         match tasks.write_all(&task_path) {
@@ -320,23 +325,61 @@ impl TaskList {
         let mut breaks = vec![];
         let mut start = 0;
         let mut end = 0;
+        let mut word_start = 0;
+        let mut word_end = 0;
 
         while let Some(c) = chars.next() {
             index += 1;
 
-            if c.is_whitespace() && (index - start) <= width {
+            // if is whitespace then we are at the end of a word
+            //    if word + length of current line < width then add word to line
+            //    if else if word > width then hyphenate word
+            //    else start new line and add word to that
+            if c.is_whitespace() || index == text.len() || (index - word_start) > width{
+                word_end = index;
+                let word_len = word_end - word_start;
+
+                print!("{}, {}; Word: {}; ", start, end, text.get(word_start..word_end).unwrap());
+
+                if word_len + (end - start) <= width {
+                    print!("Add word");
+                    end = word_end;
+                    if index == text.len() {
+                        breaks.push((start, end));
+                    }
+                } else {
+                    if  word_len + (end - start) > width {
+                        print!("Split");
+                        end = word_start + (width - (end-start));
+                        breaks.push((start, end));
+                        start = end;
+                        word_end = end;
+                        end = word_end;
+                    } else {
+                        print!("New line");
+                        breaks.push((start, end));
+                        start = word_start;
+                        end = word_end;
+                    }
+                }
+                
+                word_start = word_end;
+                println!();
+            }
+
+            /*if c.is_whitespace() && (index - start) <= width {
                 end = index;
             } else if (index - start) > width {
                 breaks.push((start, end));
                 start = end;
                 end = start;
-            }
+            }*/
         }
 
-        if end < text.len() {
+        /*if end < text.len() {
             end = index;
             breaks.push((start, end));
-        }
+        }*/
 
         let mut lines = vec![];
         for b in breaks {
