@@ -62,12 +62,7 @@ fn main() {
             debug!("Closing task with ID: {}", id);
             tasks.close_task(id).expect("Could not find given ID");
         } else {
-            //tasks.print();
-            let text = String::from("the quick brown fox jumped over the lazy dog");
-            let ll = TaskList::format_to_column(&text, 10);
-            for l in ll {
-                println!("{}", l);
-            }
+            tasks.print();
         }
         debug!("Writing tasks");
         match tasks.write_all(&task_path) {
@@ -297,19 +292,18 @@ impl TaskList {
         for task in self.tasks.iter() {
             // Check the length of the name, if it is longer than `name_width` it will need to be
             // printed on multiple lines
-            let mut cursor = 0;
-            while cursor < task.name.len() {
-                let end = if (cursor + name_width) > task.name.len() {task.name.len()} else {cursor + name_width};
-                let name_part = match task.name.get(cursor..end) { Some(ss) => ss, None => " "};
-                if cursor == 0 {
+            let lines = TaskList::format_to_column(&task.name, name_width);
+            let mut first_line = true;
+            for line in lines {
+                if first_line {
                     print!("{0: <id_width$} ", task.id, id_width = id_width);
                 } else {
                     print!("{0: <id_width$} ", "", id_width = id_width);
                 }
                 println!("{0: <name_width$}", 
-                    name_part,
+                    line,
                     name_width = name_width);
-                cursor += name_width;
+                first_line = false;
             }
         }
     }
@@ -324,30 +318,32 @@ impl TaskList {
         let mut index = 0;
         let mut chars = text.chars();
         let mut breaks = vec![];
+        let mut start = 0;
+        let mut end = 0;
 
         while index < text.len() {
-            let mut start = index;
-            let mut end = index+1;
+            start = end;
+            end = start;
             while let Some(c) = chars.next() {
                 index += 1;
-                // consume character by character
-                // if we have exceeded width the start a new line
-                if c.is_whitespace() {
+
+                if c.is_whitespace() && (index - start) <= width {
                     end = index;
                 } else if (index - start) > width {
                     break;
                 }
-                // if the word is longer than width then break the word up
+
+                if index == text.len() {
+                    end = index;
+                }
             }
             breaks.push((start, end));
         }
 
         let mut lines = vec![];
-        println!("Length: {}\tBreaks: {}", text.len(), breaks.len());
         for b in breaks {
             let start = b.0;
             let end = if b.1 > text.len() {text.len()} else {b.1};
-            println!("{}..{}", start, end);
             lines.push(text.get(start..end).unwrap());
         }
         lines
