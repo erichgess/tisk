@@ -1,3 +1,11 @@
+/**
+ * Note about test execution: tests must be run with `--test-threads=1` so that
+ * only one test is run at a time.  These tests all involve creation of files and
+ * manipulation of directories and the current directory of the process; running
+ * tests in parallel will cause them to interfere with each other and break in
+ * unexpected ways
+ */
+
 extern crate tisk;
 
 use std::fs;
@@ -18,10 +26,6 @@ fn teardown(test: &str) {
     fs::remove_dir_all(root).unwrap();
 }
 
-
-// all the integration tests which create files are kept in a single test function,
-// this is to force all the steps to be serialized: otherwise the directory changes
-// will interfere with each other when tests are run in parallel
 #[test]
 fn test_upsearch() {
     let root_dir = setup("test_upsearch");
@@ -56,11 +60,14 @@ fn test_upsearch() {
     assert_eq!(None, path);
 
     teardown("test_upsearch");
-    
+}
+
+#[test]
+fn test_initialize() {
     let root_dir = setup("test_init");
     let proj_dir = format!("{}/a", root_dir);
     let expected_task_dir = format!("{}/.task", proj_dir);
-    //let expected_task_path = PathBuf::from(expected_task_dir).canonicalize().unwrap();
+    let original_dir = env::current_dir().unwrap();
 
     env::set_current_dir(&proj_dir).unwrap();
 
