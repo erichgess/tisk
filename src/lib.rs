@@ -218,7 +218,7 @@ impl TaskList {
     }
 
     #[allow(dead_code)]
-    pub fn print(&self) {
+    pub fn print(&self, all: bool) {
         use console::Style;
         use console::Term;
 
@@ -238,6 +238,9 @@ impl TaskList {
             id_width = id_width, name_width = name_width);
 
         for task in self.tasks.iter() {
+            if !all && task.status != Status::Open {
+                continue;
+            }
             // Check the length of the name, if it is longer than `name_width` it will need to be
             // printed on multiple lines
             let lines = TaskList::format_to_column(&task.name, name_width, 5);

@@ -43,6 +43,14 @@ fn main() {
             )
         )
         .subcommand(
+            App::new("list")
+            .arg(
+                Arg::with_name("all")
+                .help("Display all tasks, regardless of state")
+                .long("all")
+            )
+        )
+        .subcommand(
             App::new("init")
         )
         .get_matches();
@@ -78,7 +86,15 @@ fn main() {
             debug!("Closing task with ID: {}", id);
             tasks.close_task(id).expect("Could not find given ID");
         } else {
-            tasks.print();
+            if let Some(ref matches) = args.subcommand_matches("list") {
+                if matches.is_present("all") {
+                    tasks.print(true);
+                } else {
+                    tasks.print(false);
+                }
+            } else {
+                tasks.print(false);
+            }
         }
         debug!("Writing tasks");
         match tasks.write_all(&task_path) {
