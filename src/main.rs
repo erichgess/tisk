@@ -332,7 +332,7 @@ impl TaskList {
             //    if else if word > width then hyphenate word
             //    else start new line and add word to that
             if c.is_whitespace() || index == text.len() || (index - word_start) > width{
-                word_end = index;
+                word_end = index;  // whitespace will be added to the current word until a new word starts or the end of the column is reached
                 let word_len = word_end - word_start;
 
                 if word_len + (end - start) <= width {
@@ -383,6 +383,28 @@ mod tests {
         //          1234567890    <- column numbers
         assert_eq!("the quick ", lines[0]);
         assert_eq!("brown fox", lines[1]);
+    }
+
+    #[test]
+    fn split_short_words_multiple_spaces() {
+        let text = String::from("the quick  brown fox   jumped   ");
+        let lines = TaskList::format_to_column(&text, 10, 5);
+        assert_eq!(4, lines.len());  
+        //          1234567890    <- column numbers
+        assert_eq!("the quick ", lines[0]);
+        assert_eq!(" brown ", lines[1]);
+        assert_eq!("fox   jump", lines[2]);
+        assert_eq!("ed   ", lines[3]);
+    }
+
+    #[test]
+    fn split_short_words_whitepsace_longer_than_column() {
+        let text = String::from("the            fox");
+        let lines = TaskList::format_to_column(&text, 10, 5);
+        assert_eq!(2, lines.len());  
+        //          1234567890    <- column numbers
+        assert_eq!("the       ", lines[0]);
+        assert_eq!("     fox", lines[1]);
     }
 
     #[test]
