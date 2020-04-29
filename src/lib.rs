@@ -217,7 +217,7 @@ impl TaskList {
         Ok(count)
     }
 
-    pub fn print_tasks(tasks: Vec<&Task>) {
+    pub fn print(tasks: Vec<&Task>) {
         use console::Style;
         use console::Term;
 
