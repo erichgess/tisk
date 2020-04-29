@@ -62,12 +62,7 @@ fn main() {
             debug!("Closing task with ID: {}", id);
             tasks.close_task(id).expect("Could not find given ID");
         } else {
-            let s = String::from("the quick brown fox jumped over the lazy dog arglebargley");
-            let lines = TaskList::format_to_column(&s, 10, 5);
-            for line in lines.iter() {
-                println!("{}", line);
-            }
-            //tasks.print();
+            tasks.print();
         }
         debug!("Writing tasks");
         match tasks.write_all(&task_path) {
