@@ -62,7 +62,12 @@ fn main() {
             debug!("Closing task with ID: {}", id);
             tasks.close_task(id).expect("Could not find given ID");
         } else {
-            tasks.print();
+            //tasks.print();
+            let text = String::from("the quick brown fox jumped over the lazy dog");
+            let ll = TaskList::format_to_column(&text, 10);
+            for l in ll {
+                println!("{}", l);
+            }
         }
         debug!("Writing tasks");
         match tasks.write_all(&task_path) {
@@ -307,5 +312,44 @@ impl TaskList {
                 cursor += name_width;
             }
         }
+    }
+
+    /**
+     * Takes a given string and formats it into a vector of strings
+     * such that each string is no longer than the given width.  It will
+     * attempt to break lines at spaces but if a word is longer than
+     * the given column width it will split on the word.
+     */
+    fn format_to_column(text: &String, width: usize) -> Vec<&str>{
+        let mut index = 0;
+        let mut chars = text.chars();
+        let mut breaks = vec![];
+
+        while index < text.len() {
+            let mut start = index;
+            let mut end = index+1;
+            while let Some(c) = chars.next() {
+                index += 1;
+                // consume character by character
+                // if we have exceeded width the start a new line
+                if c.is_whitespace() {
+                    end = index;
+                } else if (index - start) > width {
+                    break;
+                }
+                // if the word is longer than width then break the word up
+            }
+            breaks.push((start, end));
+        }
+
+        let mut lines = vec![];
+        println!("Length: {}\tBreaks: {}", text.len(), breaks.len());
+        for b in breaks {
+            let start = b.0;
+            let end = if b.1 > text.len() {text.len()} else {b.1};
+            println!("{}..{}", start, end);
+            lines.push(text.get(start..end).unwrap());
+        }
+        lines
     }
 }
