@@ -5,6 +5,7 @@ use serde::{Serialize, Deserialize};
 use std::fs::File;
 use std::io::prelude::*;
 use std::collections::HashSet;
+extern crate tisk;
 
 fn main() {
     log4rs::init_file("config/log4rs.yaml", Default::default())
@@ -32,13 +33,13 @@ fn main() {
         .get_matches();
 
     if args.subcommand_matches("init").is_some() {
-        match initialize() {
-            Ok(InitResult::Initialized) => println!("Initialized directory"),
-            Ok(InitResult::AlreadyInitialized) => println!("Already initialized"),
+        match tisk::initialize() {
+            Ok(tisk::InitResult::Initialized) => println!("Initialized directory"),
+            Ok(tisk::InitResult::AlreadyInitialized) => println!("Already initialized"),
             Err(why) => panic!("Failed to initialize tisk project: {}", why),
         }
     } else {
-        let task_path = match up_search(".task") {
+        let task_path = match tisk::up_search(".", ".task") {
             Ok(path) => match path {
                 Some(p) => p,
                 None => panic!("Invalid tisk project, could not found .task in this directory or any parent directory"),
@@ -84,58 +85,6 @@ fn get_files(path: &std::path::PathBuf) -> std::io::Result<Vec<std::path::PathBu
     }
 
     Ok(files)
-}
-
-enum InitResult {
-    Initialized,
-    AlreadyInitialized,
-}
-
-fn initialize() -> std::io::Result<InitResult> {
-        match std::fs::read_dir("./.task") {
-            Ok(_) => Ok(InitResult::AlreadyInitialized),
-            Err(_) => match std::fs::create_dir("./.task") {
-                Err(why) => Err(why),
-                Ok(_) => Ok(InitResult::Initialized),
-            }
-        }
-}
-
-fn up_search(file_name: &str) -> std::io::Result<Option<std::path::PathBuf>> {
-    let path = std::fs::canonicalize(".")?;
-
-    let mut found = None;
-
-    for parent in path.ancestors() {
-        let mut files = parent.read_dir()?;
-        found = files.find(|f| {
-            let file = f.as_ref().unwrap();
-            let meta = file.metadata();
-            match meta {
-                Ok(md) => {
-                    let ty = md.file_type();
-                    if ty.is_dir() {
-                        file.file_name() == file_name
-                    } else {
-                        false
-                    }
-                },
-                Err(_) => false
-            }
-        });
-
-        if found.is_some() {
-            break;
-        }
-    }
-
-    match found {
-        Some(result) => match result {
-            Err(why) => Err(why),
-            Ok(v) => Ok(Some(v.path())),
-        },
-        None => Ok(None),
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
