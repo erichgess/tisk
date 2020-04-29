@@ -225,7 +225,7 @@ impl TaskList {
         }
     }
 
-    pub fn write_all(self, task_path: &std::path::PathBuf) -> std::io::Result<u32> {
+    pub fn write_modified(&self, task_path: &std::path::PathBuf) -> std::io::Result<u32> {
         debug!("Tasks to write: {}", self.modified_tasks.len());
         let mut count = 0;
         for id in self.modified_tasks.iter() {
@@ -236,6 +236,16 @@ impl TaskList {
                 }
                 None => (),
             }
+        }
+        Ok(count)
+    }
+
+    pub fn write_all(&self, task_path: &std::path::PathBuf) -> std::io::Result<u32> {
+        debug!("Tasks to write: {}", self.modified_tasks.len());
+        let mut count = 0;
+        for task in self.tasks.iter() {
+            Task::write(task, &task_path)?;
+            count += 1;
         }
         Ok(count)
     }
