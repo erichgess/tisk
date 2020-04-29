@@ -1,12 +1,10 @@
+use clap::{App, Arg};
+use log::{debug, LevelFilter};
 use log4rs;
 use log4rs::{
-    append::{
-        console::{ConsoleAppender},
-    },
+    append::console::ConsoleAppender,
     config::{Appender, Root},
 };
-use log::{debug, LevelFilter};
-use clap::{App, Arg};
 extern crate tisk;
 
 fn configure_logger() {
@@ -18,7 +16,7 @@ fn configure_logger() {
                 .build(Root::builder().appender("stdout").build(LevelFilter::Info))
                 .unwrap();
             log4rs::init_config(config).unwrap();
-            },
+        }
         Ok(_) => (),
     }
 }
@@ -29,30 +27,16 @@ fn main() {
     let args = App::new("Tisk")
         .version(option_env!("CARGO_PKG_VERSION").unwrap_or(""))
         .about("Task Management with scoping")
+        .subcommand(App::new("add").arg(Arg::with_name("input").index(1).required(true)))
+        .subcommand(App::new("close").arg(Arg::with_name("ID").index(1)))
         .subcommand(
-            App::new("add")
-            .arg(
-                Arg::with_name("input")
-                .index(1)
-                .required(true)))
-        .subcommand(
-            App::new("close")
-            .arg(
-                Arg::with_name("ID")
-                .index(1)
-            )
-        )
-        .subcommand(
-            App::new("list")
-            .arg(
+            App::new("list").arg(
                 Arg::with_name("all")
-                .help("Display all tasks, regardless of state")
-                .long("all")
-            )
+                    .help("Display all tasks, regardless of state")
+                    .long("all"),
+            ),
         )
-        .subcommand(
-            App::new("init")
-        )
+        .subcommand(App::new("init"))
         .get_matches();
 
     if args.subcommand_matches("init").is_some() {
@@ -72,14 +56,12 @@ fn main() {
 
         let mut tasks = match tisk::TaskList::read_tasks(&task_path) {
             Err(why) => panic!("Failed to read tasks: {}", why),
-            Ok(tasks) => {
-                tasks
-            }
+            Ok(tasks) => tasks,
         };
 
         if let Some(ref matches) = args.subcommand_matches("add") {
             debug!("Adding new task to task list");
-            let name =  matches.value_of("input").unwrap();
+            let name = matches.value_of("input").unwrap();
             tasks.add_task(name).expect("Failed to create new task");
         } else if let Some(ref done) = args.subcommand_matches("close") {
             let id: u32 = done.value_of("ID").unwrap().parse().unwrap();
