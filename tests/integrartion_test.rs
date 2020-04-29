@@ -87,8 +87,6 @@ fn test_initialize() {
 fn test_add_task() {
     let root_dir = setup("test_add_task");
     let proj_dir = format!("{}/a", root_dir);
-    let expected_task_dir = format!("{}/.task", proj_dir);
-    let original_dir = env::current_dir().unwrap();
 
     env::set_current_dir(&proj_dir).unwrap();
 
