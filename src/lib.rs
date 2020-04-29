@@ -1,11 +1,11 @@
 extern crate chrono;
 
 use chrono::prelude::*;
-use log::{debug};
-use serde::{Serialize, Deserialize};
+use log::debug;
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
-use std::collections::HashSet;
 
 pub fn add() -> u32 {
     4
@@ -29,8 +29,8 @@ pub fn up_search(dir: &str, file_name: &str) -> std::io::Result<Option<std::path
                     } else {
                         false
                     }
-                },
-                Err(_) => false
+                }
+                Err(_) => false,
             }
         });
 
@@ -48,28 +48,34 @@ pub fn up_search(dir: &str, file_name: &str) -> std::io::Result<Option<std::path
     }
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum InitResult {
     Initialized,
     AlreadyInitialized,
-
 }
 
 pub fn initialize() -> std::io::Result<InitResult> {
-        match std::fs::read_dir("./.task") {
-            Ok(_) => Ok(InitResult::AlreadyInitialized),
-            Err(_) => match std::fs::create_dir("./.task") {
-                Err(why) => Err(why),
-                Ok(_) => Ok(InitResult::Initialized),
-            }
-        }
+    match std::fs::read_dir("./.task") {
+        Ok(_) => Ok(InitResult::AlreadyInitialized),
+        Err(_) => match std::fs::create_dir("./.task") {
+            Err(why) => Err(why),
+            Ok(_) => Ok(InitResult::Initialized),
+        },
+    }
 }
 
 fn get_files(path: &std::path::PathBuf) -> std::io::Result<Vec<std::path::PathBuf>> {
     use std::fs;
 
     let contents = fs::read_dir(path)?;
-    let yaml_files = contents.filter(|f| f.as_ref().unwrap().path().extension().map(|e| e == "yaml").unwrap_or(false));
+    let yaml_files = contents.filter(|f| {
+        f.as_ref()
+            .unwrap()
+            .path()
+            .extension()
+            .map(|e| e == "yaml")
+            .unwrap_or(false)
+    });
     let mut files = vec![];
     for yaml in yaml_files {
         let file = yaml?;
@@ -124,7 +130,7 @@ impl Task {
         let mut s = String::new();
         file.read_to_string(&mut s)?;
 
-        let y = serde_yaml::from_str::<Task>(&s).unwrap();  // TODO: pass this result up to the caller
+        let y = serde_yaml::from_str::<Task>(&s).unwrap(); // TODO: pass this result up to the caller
         Ok(y)
     }
 }
@@ -136,7 +142,7 @@ pub struct TaskList {
 
 impl TaskList {
     pub fn new() -> TaskList {
-        TaskList{
+        TaskList {
             tasks: vec![],
             modified_tasks: HashSet::new(),
         }
@@ -148,7 +154,7 @@ impl TaskList {
             let task = Task::read(&p)?;
             tasks.push(task);
         }
-        Ok(TaskList{
+        Ok(TaskList {
             tasks,
             modified_tasks: HashSet::new(),
         })
@@ -164,7 +170,7 @@ impl TaskList {
                     largest_id = task.id;
                 }
             }
-            largest_id+1
+            largest_id + 1
         }
     }
 
@@ -185,8 +191,8 @@ impl TaskList {
             Some(task) => {
                 debug!("Adding id to the set of modified tasks");
                 self.modified_tasks.insert(task.id);
-            },
-            None => ()
+            }
+            None => (),
         }
         task
     }
@@ -197,7 +203,7 @@ impl TaskList {
 
     pub fn add_task(&mut self, name: &str) -> u32 {
         let id = self.next_id();
-        let t = Task{
+        let t = Task {
             id: id,
             name: String::from(name),
             status: Status::Open,
@@ -227,7 +233,7 @@ impl TaskList {
                 Some(task) => {
                     Task::write(task, &task_path)?;
                     count += 1;
-                },
+                }
                 None => (),
             }
         }
@@ -238,21 +244,33 @@ impl TaskList {
         use console::Style;
         use console::Term;
 
-        // Get terminal dimensions so that we can compute how wide columns can be and 
+        // Get terminal dimensions so that we can compute how wide columns can be and
         // how to format text properly
         // Assume that we'll always have at least 20 columns in the terminal (as even that small
         // would be unuseable for a person.
-        let (_, cols) = Term::stdout().size_checked().expect("Could not get terminal details");
+        let (_, cols) = Term::stdout()
+            .size_checked()
+            .expect("Could not get terminal details");
 
-        let id_width:usize = 4;
-        let date_width:usize = 10;  // YYYY-mm-dd
-        let name_width:usize = if (cols as usize - (id_width+1)) < 16 {16} else {cols as usize - (id_width+1)-(date_width+1)}; // subtract id_width + 1 to account for a space between columns
+        let id_width: usize = 4;
+        let date_width: usize = 10; // YYYY-mm-dd
+        let name_width: usize = if (cols as usize - (id_width + 1)) < 16 {
+            16
+        } else {
+            cols as usize - (id_width + 1) - (date_width + 1)
+        }; // subtract id_width + 1 to account for a space between columns
 
         // Print the column headers
         let ul = Style::new().underlined();
-        println!("{0: <id_width$} {1: <date_width$} {2: <name_width$}", 
-            ul.apply_to("ID"), ul.apply_to("Date"), ul.apply_to("Name"), 
-            id_width = id_width, date_width = date_width, name_width = name_width);
+        println!(
+            "{0: <id_width$} {1: <date_width$} {2: <name_width$}",
+            ul.apply_to("ID"),
+            ul.apply_to("Date"),
+            ul.apply_to("Name"),
+            id_width = id_width,
+            date_width = date_width,
+            name_width = name_width
+        );
 
         for task in tasks.iter() {
             // Check the length of the name, if it is longer than `name_width` it will need to be
@@ -268,9 +286,7 @@ impl TaskList {
                     print!("{0: <id_width$} ", "", id_width = id_width);
                     print!("{0: <date_width$} ", "", date_width = date_width);
                 }
-                println!("{0: <name_width$}", 
-                    line,
-                    name_width = name_width);
+                println!("{0: <name_width$}", line, name_width = name_width);
                 first_line = false;
             }
         }
@@ -304,7 +320,7 @@ impl TaskList {
      * attempt to break lines at spaces but if a word is longer than
      * the given column width it will split on the word.
      */
-    fn format_to_column(text: &String, width: usize, split_limit: usize) -> Vec<&str>{
+    fn format_to_column(text: &String, width: usize, split_limit: usize) -> Vec<&str> {
         let mut index = 0;
         let mut chars = text.chars();
         let mut breaks = vec![];
@@ -320,8 +336,8 @@ impl TaskList {
             //    if word + length of current line < width then add word to line
             //    if else if word > width then hyphenate word
             //    else start new line and add word to that
-            if c.is_whitespace() || index == text.len() || (index - word_start) > width{
-                word_end = index;  // whitespace will be added to the current word until a new word starts or the end of the column is reached
+            if c.is_whitespace() || index == text.len() || (index - word_start) > width {
+                word_end = index; // whitespace will be added to the current word until a new word starts or the end of the column is reached
                 let word_len = word_end - word_start;
 
                 if word_len + (end - start) <= width {
@@ -330,9 +346,13 @@ impl TaskList {
                         breaks.push((start, end));
                     }
                 } else {
-                    let splittable = if split_limit < width {word_len > split_limit} else {true};
-                    if  splittable && word_len + (end - start) > width {
-                        end = word_start + (width - (end-start));
+                    let splittable = if split_limit < width {
+                        word_len > split_limit
+                    } else {
+                        true
+                    };
+                    if splittable && word_len + (end - start) > width {
+                        end = word_start + (width - (end - start));
                         breaks.push((start, end));
                         start = end;
                         end = word_end;
@@ -345,7 +365,7 @@ impl TaskList {
                         breaks.push((start, end));
                     }
                 }
-                
+
                 word_start = word_end;
             }
         }
@@ -353,7 +373,7 @@ impl TaskList {
         let mut lines = vec![];
         for b in breaks {
             let start = b.0;
-            let end = if b.1 > text.len() {text.len()} else {b.1};
+            let end = if b.1 > text.len() { text.len() } else { b.1 };
             lines.push(text.get(start..end).unwrap());
         }
         lines
@@ -368,7 +388,7 @@ mod tests {
     fn split_short_words() {
         let text = String::from("the quick brown fox");
         let lines = TaskList::format_to_column(&text, 10, 5);
-        assert_eq!(2, lines.len());  
+        assert_eq!(2, lines.len());
         //          1234567890    <- column numbers
         assert_eq!("the quick ", lines[0]);
         assert_eq!("brown fox", lines[1]);
@@ -378,7 +398,7 @@ mod tests {
     fn split_short_words_multiple_spaces() {
         let text = String::from("the quick  brown fox   jumped   ");
         let lines = TaskList::format_to_column(&text, 10, 5);
-        assert_eq!(4, lines.len());  
+        assert_eq!(4, lines.len());
         //          1234567890    <- column numbers
         assert_eq!("the quick ", lines[0]);
         assert_eq!(" brown ", lines[1]);
@@ -390,7 +410,7 @@ mod tests {
     fn split_short_words_whitepsace_longer_than_column() {
         let text = String::from("the            fox");
         let lines = TaskList::format_to_column(&text, 10, 5);
-        assert_eq!(2, lines.len());  
+        assert_eq!(2, lines.len());
         //          1234567890    <- column numbers
         assert_eq!("the       ", lines[0]);
         assert_eq!("     fox", lines[1]);
@@ -400,7 +420,7 @@ mod tests {
     fn no_split() {
         let text = String::from("the quick");
         let lines = TaskList::format_to_column(&text, 10, 5);
-        assert_eq!(1, lines.len());  
+        assert_eq!(1, lines.len());
         //          1234567890    <- column numbers
         assert_eq!("the quick", lines[0]);
     }
@@ -409,7 +429,7 @@ mod tests {
     fn split_many_words() {
         let text = String::from("the quick brown fox jumped over the lazy dog");
         let lines = TaskList::format_to_column(&text, 10, 5);
-        assert_eq!(5, lines.len());  
+        assert_eq!(5, lines.len());
         //          1234567890    <- column numbers
         assert_eq!("the quick ", lines[0]);
         assert_eq!("brown fox ", lines[1]);
@@ -422,7 +442,7 @@ mod tests {
     fn split_word_longer_than_min_but_smaller_than_column_width() {
         let text = String::from("the quick brown fox fast jumped over the lazy dog");
         let lines = TaskList::format_to_column(&text, 10, 5);
-        assert_eq!(6, lines.len());  
+        assert_eq!(6, lines.len());
         //          1234567890    <- column numbers
         assert_eq!("the quick ", lines[0]);
         assert_eq!("brown fox ", lines[1]);
@@ -436,7 +456,7 @@ mod tests {
     fn split_word_longer_than_column_width() {
         let text = String::from("argleybargley");
         let lines = TaskList::format_to_column(&text, 10, 5);
-        assert_eq!(2, lines.len());  
+        assert_eq!(2, lines.len());
         //          1234567890    <- column numbers
         assert_eq!("argleybarg", lines[0]);
         assert_eq!("ley", lines[1]);
@@ -446,7 +466,7 @@ mod tests {
     fn split_word_longer_than_column_width_shorter_than_min_word() {
         let text = String::from("bark");
         let lines = TaskList::format_to_column(&text, 3, 5);
-        assert_eq!(2, lines.len());  
+        assert_eq!(2, lines.len());
         //          123    <- column numbers
         assert_eq!("bar", lines[0]);
         assert_eq!("k", lines[1]);
@@ -456,7 +476,7 @@ mod tests {
     fn split_word_change_limit() {
         let text = String::from("the quick brown fox fast jumped over the lazy dog");
         let lines = TaskList::format_to_column(&text, 10, 7);
-        assert_eq!(6, lines.len());  
+        assert_eq!(6, lines.len());
         //          1234567890    <- column numbers
         assert_eq!("the quick ", lines[0]);
         assert_eq!("brown fox ", lines[1]);
