@@ -217,44 +217,6 @@ impl TaskList {
         Ok(count)
     }
 
-    pub fn print(&self) {
-        use console::Style;
-        use console::Term;
-
-        // Get terminal dimensions so that we can compute how wide columns can be and 
-        // how to format text properly
-        // Assume that we'll always have at least 20 columns in the terminal (as even that small
-        // would be unuseable for a person.
-        let (_, cols) = Term::stdout().size_checked().expect("Could not get terminal details");
-
-        let id_width = 4;
-        let name_width:usize = if (cols - 5) < 16 {16} else {cols as usize-5}; // subtract id_width + 1 to account for a space between columns
-
-        // Print the column headers
-        let ul = Style::new().underlined();
-        println!("{0: <id_width$} {1: <name_width$}", 
-            ul.apply_to("ID"), ul.apply_to("Name"), 
-            id_width = id_width, name_width = name_width);
-
-        for task in self.tasks.iter() {
-            // Check the length of the name, if it is longer than `name_width` it will need to be
-            // printed on multiple lines
-            let lines = TaskList::format_to_column(&task.name, name_width, 5);
-            let mut first_line = true;
-            for line in lines {
-                if first_line {
-                    print!("{0: <id_width$} ", task.id, id_width = id_width);
-                } else {
-                    print!("{0: <id_width$} ", "", id_width = id_width);
-                }
-                println!("{0: <name_width$}", 
-                    line,
-                    name_width = name_width);
-                first_line = false;
-            }
-        }
-    }
-    
     pub fn print_tasks(tasks: Vec<&Task>) {
         use console::Style;
         use console::Term;
@@ -291,6 +253,18 @@ impl TaskList {
                 first_line = false;
             }
         }
+    }
+
+    pub fn get_all(&self) -> Vec<&Task> {
+        let mut all = vec![];
+        for task in self.tasks.iter() {
+            all.push(task);
+        }
+        all
+    }
+
+    pub fn get_open(&self) -> Vec<&Task> {
+        self.filter(Status::Open)
     }
 
     pub fn filter(&self, status: Status) -> Vec<&Task> {
