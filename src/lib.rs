@@ -55,9 +55,9 @@ pub enum InitResult {
 }
 
 pub fn initialize() -> std::io::Result<InitResult> {
-    match std::fs::read_dir("./.task") {
+    match std::fs::read_dir("./.tisk") {
         Ok(_) => Ok(InitResult::AlreadyInitialized),
-        Err(_) => match std::fs::create_dir("./.task") {
+        Err(_) => match std::fs::create_dir("./.tisk") {
             Err(why) => Err(why),
             Ok(_) => Ok(InitResult::Initialized),
         },

@@ -54,12 +54,12 @@ fn main() {
             Err(why) => panic!("Failed to initialize tisk project: {}", why),
         }
     } else {
-        let task_path = match tisk::up_search(".", ".task") {
+        let task_path = match tisk::up_search(".", ".tisk") {
             Ok(path) => match path {
                 Some(p) => p,
-                None => panic!("Invalid tisk project, could not found .task in this directory or any parent directory"),
+                None => panic!("Invalid tisk project, could not found .tisk in this directory or any parent directory"),
             },
-            Err(why) => panic!("Failure while searching for .task dir: {}", why),
+            Err(why) => panic!("Failure while searching for .tisk dir: {}", why),
         };
 
         let mut tasks = match tisk::TaskList::read_tasks(&task_path) {
