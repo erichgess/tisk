@@ -23,7 +23,10 @@ fn setup(test: &str) -> String {
 fn teardown(test: &str) {
     let root = format!("/tmp/test/{}", test);
     println!("Removing: {}", root);
-    fs::remove_dir_all(root).unwrap();
+    match fs::remove_dir_all(root) {
+        Ok(_) => (),
+        Err(_) => (),
+    }
 }
 
 #[test]
@@ -59,6 +62,8 @@ fn test_upsearch() {
     let path = tisk::up_search(".", ".task").unwrap();
     assert_eq!(None, path);
 
+    env::set_current_dir(&original_dir).unwrap();
+
     teardown("test_upsearch");
 }
 
@@ -80,11 +85,15 @@ fn test_initialize() {
     assert_eq!(tisk::InitResult::AlreadyInitialized, result);
     env::set_current_dir(&expected_task_dir).unwrap();  // test that the directory was actually created
 
+    env::set_current_dir(&original_dir).unwrap();
+
     teardown("test_init");
 }
 
 #[test]
 fn test_add_task() {
+    let original_dir = env::current_dir().unwrap();
+    teardown("test_add_task");
     let root_dir = setup("test_add_task");
     let proj_dir = format!("{}/a", root_dir);
 
@@ -139,5 +148,6 @@ fn test_add_task() {
         assert_eq!(tisk::Status::Open, task.status());
     }
 
+    env::set_current_dir(&original_dir).unwrap();
     teardown("test_add_task");
 }
