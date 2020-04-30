@@ -266,7 +266,6 @@ impl TaskList {
     }
 
     pub fn print(tasks: Vec<&Task>) {
-        use console::Style;
         use console::Term;
 
         // Get terminal dimensions so that we can compute how wide columns can be and
@@ -279,28 +278,42 @@ impl TaskList {
 
         let id_width: usize = 4;
         let date_width: usize = 10; // YYYY-mm-dd
-        let name_width: usize = if (cols as usize - (id_width + 1)) < 16 {
+        let priority_width: usize =  3;
+        let name_width: usize = if (cols as usize - (id_width + 1 + date_width + 1 + priority_width + 1)) < 16 {
             16
         } else {
-            cols as usize - (id_width + 1) - (date_width + 1)
+            cols as usize - (id_width + 1) - (date_width + 1) - (priority_width + 1)
         }; // subtract id_width + 1 to account for a space between columns
 
         // Print the column headers
+        TaskList::print_header(id_width, date_width, priority_width, name_width);
+
+        // print each task, in the order given by the input vector
+        for task in tasks.iter() {
+            TaskList::print_task(task, id_width, date_width, priority_width, name_width);
+        }
+    }
+
+    fn print_header(id_width: usize, date_width: usize, priority_width: usize, name_width: usize) {
+        use console::Style;
         let ul = Style::new().underlined();
         println!(
-            "{0: <id_width$} {1: <date_width$} {2: <name_width$}",
+            "{0: <id_width$} {1: <date_width$} {2: <name_width$} {3: <priority_width$}",
             ul.apply_to("ID"),
             ul.apply_to("Date"),
             ul.apply_to("Name"),
+            ul.apply_to("Pri"),
             id_width = id_width,
             date_width = date_width,
-            name_width = name_width
+            name_width = name_width,
+            priority_width = priority_width,
         );
+    }
 
-        for task in tasks.iter() {
+    fn print_task(task: &Task, id_width: usize, date_width: usize, priority_width: usize, name_width: usize) {
             // Check the length of the name, if it is longer than `name_width` it will need to be
             // printed on multiple lines
-            let lines = TaskList::format_to_column(&task.name, name_width, 5);
+            let lines = TaskList::format_to_column(&task.name, name_width, 7);
             let mut first_line = true;
             for line in lines {
                 if first_line {
@@ -311,10 +324,17 @@ impl TaskList {
                     print!("{0: <id_width$} ", "", id_width = id_width);
                     print!("{0: <date_width$} ", "", date_width = date_width);
                 }
-                println!("{0: <name_width$}", line, name_width = name_width);
+
+                print!("{0: <name_width$} ", line, name_width = name_width);
+
+                if first_line {
+                    print!("{0: <priority_width$}", task.priority, priority_width = priority_width);
+                } else {
+                    print!("{0: <priority_width$}", "", priority_width = priority_width);
+                }
+                println!();
                 first_line = false;
             }
-        }
     }
 
     pub fn get_all(&self) -> Vec<&Task> {
