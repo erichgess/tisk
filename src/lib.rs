@@ -579,6 +579,30 @@ mod tests {
     }
 
     #[test]
+    fn change_priority() {
+        let tasks;
+        {
+            let mut mtasks = TaskList::new();
+            let t = mtasks.add_task("test", 1);
+            mtasks.add_task("test 2", 2);
+            mtasks.set_priority(t, 4);
+            tasks = mtasks;
+        }
+
+        let t = tasks.get(1).unwrap();
+        assert_eq!(1, t.id());
+        assert_eq!(4, t.priority());
+        assert_eq!("test", t.name());
+        assert_eq!(Status::Open, t.status());
+
+        let t2 = tasks.get(2).unwrap();
+        assert_eq!(2, t2.id());
+        assert_eq!(2, t2.priority());
+        assert_eq!("test 2", t2.name());
+        assert_eq!(Status::Open, t2.status());
+    }
+
+    #[test]
     fn get_open() {
         let tasks;
         {
