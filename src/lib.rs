@@ -585,7 +585,20 @@ mod tests {
             let mut mtasks = TaskList::new();
             let t = mtasks.add_task("test", 1);
             mtasks.add_task("test 2", 2);
-            mtasks.set_priority(t, 4);
+            let (old, new) = mtasks.set_priority(t, 4).expect("The old and new tasks");
+            assert_eq!(1, old.priority());
+            assert_eq!(1, old.id());
+            assert_eq!("test", old.name());
+            assert_eq!(4, new.priority());
+            assert_eq!(1, new.id());
+            assert_eq!("test", new.name());
+
+            // set priority for a task which does not exist
+            match mtasks.set_priority(3, 2) {
+                None => (),
+                Some(_) => panic!("None should be returned when changing priority for a task which does not exist"),
+            }
+
             tasks = mtasks;
         }
 
