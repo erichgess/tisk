@@ -45,42 +45,27 @@ fn main() {
             Err(why) => ferror!("Failed to initialize tisk project: {}", why),
         }
     } else {
-        match tisk::up_search(".", ".tisk") {
-            Err(why) => ferror!("Failure while searching for .tisk dir: {}", why),
-            Ok(path) => match path {
-                None => ferror!("Invalid tisk project, could not found .tisk in this directory or any parent directory"),
-                Some(task_path) => {
-                    match tisk::TaskList::read_tasks(&task_path) {
-                        Err(why) => ferror!("Failed to read tasks: {}", why),
-                        Ok(mut tasks) => {
-                            let command_result = if let Some(add) = args.subcommand_matches("add") {
-                                handle_add(&mut tasks, add)
-                            } else if let Some(close) = args.subcommand_matches("close") {
-                                handle_close(&mut tasks, close)
-                            } else if let Some(edit) = args.subcommand_matches("edit") {
-                                handle_edit(&mut tasks, edit)
-                            } else {
-                                if let Some(list) = args.subcommand_matches("list") {
-                                    handle_list(&tasks, list)
-                                } else {
-                                    handle_list(&tasks, &ArgMatches::new())
-                                }
-                            };
+        match find_task_dir() {
+            Err(why) => Err(why),
+            Ok(task_path) => {
+                match tisk::TaskList::read_tasks(&task_path) {
+                    Err(why) => ferror!("Failed to read tasks: {}", why),
+                    Ok(mut tasks) => {
+                        let result = execute_command(&mut tasks, &args);
 
-                            match command_result {
-                                Err(e) => Err(e),
-                                Ok(CommandEffect::Read) => Ok(()),
-                                Ok(CommandEffect::Write) => {
-                                    debug!("Writing tasks");
-                                    match tasks.write_all(&task_path) {
-                                        Ok(_) => Ok(()),
-                                        Err(why) => ferror!("{}", why),
-                                    }
+                        match result {
+                            Err(e) => Err(e),
+                            Ok(CommandEffect::Read) => Ok(()),
+                            Ok(CommandEffect::Write) => {
+                                debug!("Writing tasks");
+                                match tasks.write_all(&task_path) {
+                                    Ok(_) => Ok(()),
+                                    Err(why) => ferror!("{}", why),
                                 }
                             }
-                        },
-                    }
-                },
+                        }
+                    },
+                }
             },
         }
     };
@@ -88,6 +73,34 @@ fn main() {
         Ok(_) => (),
         Err(err) => println!("{}", err),
     };
+}
+
+// TODO: I kind of feel like passing this &mut TaskList into this function breaks the concept of
+// the owner determining who can modify an entity
+fn execute_command(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+    if let Some(add) = args.subcommand_matches("add") {
+        handle_add(tasks, add)
+    } else if let Some(close) = args.subcommand_matches("close") {
+        handle_close(tasks, close)
+    } else if let Some(edit) = args.subcommand_matches("edit") {
+        handle_edit(tasks, edit)
+    } else {
+        if let Some(list) = args.subcommand_matches("list") {
+            handle_list(tasks, list)
+        } else {
+            handle_list(tasks, &ArgMatches::new())
+        }
+    }
+}
+
+fn find_task_dir() -> Result<std::path::PathBuf, String> {
+    match tisk::up_search(".", ".tisk") {
+        Err(why) => ferror!("Failure while searching for .tisk dir: {}", why),
+        Ok(path) => match path {
+            None => ferror!("Invalid tisk project, could not find .tisk dir in the current directory or any parent directory"),
+            Some(path) => Ok(path),
+        }
+    }
 }
 
 fn configure_cli<'a, 'b>() -> App<'a,'b> {
