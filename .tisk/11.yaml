@@ -3,3 +3,4 @@ id: 11
 name: set task priority
 status: Open
 created_at: "2020-04-29T19:51:04.596374541Z"
+priority: 0

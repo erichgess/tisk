@@ -3,3 +3,4 @@ id: 10
 name: show task age
 status: Closed
 created_at: "2020-04-29T19:50:44.076395377Z"
+priority: 0

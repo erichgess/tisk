@@ -27,22 +27,29 @@ fn main() {
     let args = App::new("Tisk")
         .version(option_env!("CARGO_PKG_VERSION").unwrap_or(""))
         .about("Task Management with scoping")
-        .subcommand(App::new("add").arg(Arg::with_name("input").index(1).required(true)))
+        .subcommand(
+            App::new("add")
+                .arg(Arg::with_name("input").index(1).required(true))
+                .arg(Arg::with_name("priority").long("priority").short("p").takes_value(true).help("Sets the priority for this task (0+).")),
+        )
         .subcommand(App::new("close").arg(Arg::with_name("ID").index(1)))
         .subcommand(
-            App::new("list").arg(
-                Arg::with_name("all")
-                    .help("Display all tasks, regardless of state")
-                    .long("all"),
-            ).arg(
-                Arg::with_name("closed")
-                    .help("Display all closed tasks")
-                    .long("closed"),
-            ).arg(
-                Arg::with_name("open")
-                    .help("Display all open tasks")
-                    .long("open"),
-            ),
+            App::new("list")
+                .arg(
+                    Arg::with_name("all")
+                        .help("Display all tasks, regardless of state")
+                        .long("all"),
+                )
+                .arg(
+                    Arg::with_name("closed")
+                        .help("Display all closed tasks")
+                        .long("closed"),
+                )
+                .arg(
+                    Arg::with_name("open")
+                        .help("Display all open tasks")
+                        .long("open"),
+                ),
         )
         .subcommand(App::new("init"))
         .get_matches();
@@ -70,7 +77,8 @@ fn main() {
         if let Some(ref matches) = args.subcommand_matches("add") {
             debug!("Adding new task to task list");
             let name = matches.value_of("input").unwrap();
-            tasks.add_task(name);
+            let priority: u32 = matches.value_of("priority").unwrap_or("1").parse().unwrap();
+            tasks.add_task(name, priority);
         } else if let Some(ref done) = args.subcommand_matches("close") {
             let id: u32 = done.value_of("ID").unwrap().parse().unwrap();
             debug!("Closing task with ID: {}", id);
@@ -79,20 +87,20 @@ fn main() {
             if let Some(ref matches) = args.subcommand_matches("list") {
                 if matches.is_present("all") {
                     let mut task_slice = tasks.get_all();
-                    task_slice.sort_by(|a,b| a.id().cmp(&b.id()));
+                    task_slice.sort_by(|a, b| a.id().cmp(&b.id()));
                     tisk::TaskList::print(task_slice);
-                }  else if matches.is_present("closed") {
+                } else if matches.is_present("closed") {
                     let mut task_slice = tasks.get_closed();
-                    task_slice.sort_by(|a,b| a.id().cmp(&b.id()));
+                    task_slice.sort_by(|a, b| a.id().cmp(&b.id()));
                     tisk::TaskList::print(task_slice);
                 } else {
                     let mut task_slice = tasks.get_open();
-                    task_slice.sort_by(|a,b| a.id().cmp(&b.id()));
+                    task_slice.sort_by(|a, b| a.id().cmp(&b.id()));
                     tisk::TaskList::print(task_slice);
                 }
             } else {
                 let mut task_slice = tasks.get_open();
-                task_slice.sort_by(|a,b| a.id().cmp(&b.id()));
+                task_slice.sort_by(|a, b| a.id().cmp(&b.id()));
                 tisk::TaskList::print(task_slice);
             }
         }

@@ -7,10 +7,6 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
 
-pub fn add() -> u32 {
-    4
-}
-
 pub fn up_search(dir: &str, file_name: &str) -> std::io::Result<Option<std::path::PathBuf>> {
     let path = std::fs::canonicalize(dir)?;
 
@@ -99,6 +95,9 @@ pub struct Task {
 
     #[serde(default = "Utc::now")]
     created_at: DateTime<Utc>,
+
+    #[serde(default)]
+    priority: u32,
 }
 
 impl Task {
@@ -201,13 +200,14 @@ impl TaskList {
         self.tasks.iter().find(|t| t.id == id)
     }
 
-    pub fn add_task(&mut self, name: &str) -> u32 {
+    pub fn add_task(&mut self, name: &str, priority: u32) -> u32 {
         let id = self.next_id();
         let t = Task {
             id: id,
             name: String::from(name),
             status: Status::Open,
             created_at: Utc::now(),
+            priority: priority,
         };
         self.tasks.push(t);
         self.modified_tasks.insert(id);

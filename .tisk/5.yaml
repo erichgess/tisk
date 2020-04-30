@@ -3,3 +3,4 @@ id: 5
 name: "a task wiht a really long description: the quick brown fox jumped over the lazy dog"
 status: Closed
 created_at: "2020-04-29T20:06:19.296894587Z"
+priority: 0
