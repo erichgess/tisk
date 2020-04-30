@@ -166,10 +166,10 @@ fn handle_add(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEf
 
 fn handle_close(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
     let id = match parse_integer_arg(args.value_of("ID")) {
-        Err(_) => ferror!("Invalid ID provided, must be an integer greater than or equal to 0"),
-        Ok(None) => ferror!("No ID provided"),
-        Ok(Some(id)) => Ok(id),
-    }?;
+        Err(_) => return ferror!("Invalid ID provided, must be an integer greater than or equal to 0"),
+        Ok(None) => return ferror!("No ID provided"),
+        Ok(Some(id)) => id,
+    };
 
     debug!("Closing task with ID: {}", id);
     match tasks.close_task(id) {
@@ -182,26 +182,26 @@ fn handle_close(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<Command
 }
 
 fn handle_edit(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
-    let id = parse_integer_arg(args.value_of("ID"));
-    match id {
-        Err(_) => ferror!("Invalid value given for ID, must be an integer."),
-        Ok(None) => ferror!("Must provide a task ID"),
-        Ok(Some(id)) => {
-            let priority = parse_integer_arg(args.value_of("priority"));
-            match priority {
-                Err(_) => ferror!("Invalid value given for priority: must be an integer greater than or equal to 0."),
-                Ok(p) => match p {
-                    None => Ok(CommandEffect::Read),
-                    Some(p) => match tasks.set_priority(id, p) {
-                        None => ferror!("Could not find task with ID {}", id),
-                        Some((old, new)) => {
-                            println!("Task {} priority set from {} to {}", id, old.priority(), new.priority());
-                            Ok(CommandEffect::Write)
-                        },
-                    },
-                },
-            }
-        }
+    let id = match parse_integer_arg(args.value_of("ID")) {
+        Err(_) => return ferror!("Invalid ID provided, must be an integer greater than or equal to 0"),
+        Ok(None) => return ferror!("No ID provided"),
+        Ok(Some(id)) => id,
+    };
+
+    let priority = match parse_integer_arg(args.value_of("priority")) {
+        Err(_) => return ferror!("Invalid priority value: must be an integer greater than or equal to 0"),
+        Ok(p) => p,
+    };
+
+    match priority {
+        None => Ok(CommandEffect::Read),
+        Some(p) => match tasks.set_priority(id, p) {
+            None => ferror!("Could not find task with ID {}", id),
+            Some((old, new)) => {
+                println!("Task {} priority set from {} to {}", id, old.priority(), new.priority());
+                Ok(CommandEffect::Write)
+            },
+        },
     }
 }
 
