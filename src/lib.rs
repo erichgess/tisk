@@ -87,7 +87,7 @@ pub enum Status {
     Closed,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Task {
     id: u32,
     name: String,
@@ -111,6 +111,10 @@ impl Task {
 
     pub fn id(&self) -> u32 {
         self.id
+    }
+
+    pub fn priority(&self) -> u32 {
+        self.priority
     }
 
     fn write(task: &Task, path: &std::path::PathBuf) -> std::io::Result<()> {
@@ -221,6 +225,17 @@ impl TaskList {
             Some(task) => {
                 task.status = Status::Closed;
                 Some(task)
+            }
+        }
+    }
+
+    pub fn set_priority(&mut self, id: u32, priority: u32) -> Option<(Task, &Task)> {
+        match self.get_mut(id) {
+            None => None,
+            Some(task) => {
+                let old = task.clone();
+                task.priority = priority;
+                Some((old, task))
             }
         }
     }
