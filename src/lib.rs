@@ -536,18 +536,20 @@ mod tests {
         let tasks;
         {
             let mut mtasks = TaskList::new();
-            mtasks.add_task("test");
-            mtasks.add_task("test 2");
+            mtasks.add_task("test", 1);
+            mtasks.add_task("test 2", 2);
             tasks = mtasks;
         }
 
         let t = tasks.get(1).unwrap();
         assert_eq!(1, t.id());
+        assert_eq!(1, t.priority());
         assert_eq!("test", t.name());
         assert_eq!(Status::Open, t.status());
 
         let t2 = tasks.get(2).unwrap();
         assert_eq!(2, t2.id());
+        assert_eq!(2, t2.priority());
         assert_eq!("test 2", t2.name());
         assert_eq!(Status::Open, t2.status());
     }
@@ -557,19 +559,21 @@ mod tests {
         let tasks;
         {
             let mut mtasks = TaskList::new();
-            let t = mtasks.add_task("test");
-            mtasks.add_task("test 2");
+            let t = mtasks.add_task("test", 1);
+            mtasks.add_task("test 2", 2);
             mtasks.close_task(t);
             tasks = mtasks;
         }
 
         let t = tasks.get(1).unwrap();
         assert_eq!(1, t.id());
+        assert_eq!(1, t.priority());
         assert_eq!("test", t.name());
         assert_eq!(Status::Closed, t.status());
 
         let t2 = tasks.get(2).unwrap();
         assert_eq!(2, t2.id());
+        assert_eq!(2, t2.priority());
         assert_eq!("test 2", t2.name());
         assert_eq!(Status::Open, t2.status());
     }
@@ -579,8 +583,8 @@ mod tests {
         let tasks;
         {
             let mut mtasks = TaskList::new();
-            let t = mtasks.add_task("test");
-            mtasks.add_task("test 2");
+            let t = mtasks.add_task("test", 1);
+            mtasks.add_task("test 2", 2);
             mtasks.close_task(t);
             tasks = mtasks;
         }
@@ -596,8 +600,8 @@ mod tests {
         let tasks;
         {
             let mut mtasks = TaskList::new();
-            let t = mtasks.add_task("test");
-            mtasks.add_task("test 2");
+            let t = mtasks.add_task("test", 1);
+            mtasks.add_task("test 2", 2);
             mtasks.close_task(t);
             tasks = mtasks;
         }
@@ -613,17 +617,17 @@ mod tests {
         let tasks;
         {
             let mut mtasks = TaskList::new();
-            let t = mtasks.add_task("test");
-            mtasks.add_task("test 2");
+            let t = mtasks.add_task("test", 1);
+            mtasks.add_task("test 2", 2);
             mtasks.close_task(t);
             tasks = mtasks;
         }
 
-        let filtered_tasks = tasks.get_closed();
+        let filtered_tasks = tasks.get_all();
         assert_eq!(2, filtered_tasks.len());
         assert_eq!("test", filtered_tasks[0].name());
         assert_eq!(Status::Closed, filtered_tasks[0].status());
         assert_eq!("test 2", filtered_tasks[1].name());
-        assert_eq!(Status::Closed, filtered_tasks[1].status());
+        assert_eq!(Status::Open, filtered_tasks[1].status());
     }
 }
