@@ -20,19 +20,6 @@ enum CommandEffect {
     Read,
 }
 
-macro_rules! error {
-    () => {{
-        use console::style;
-        println!("{}: ", style("Error").red())
-    }};
-    ($($arg:tt)*) => {{
-        use console::style;
-        let preface = format!("{}: ", style("Error").red());
-        print!("{}", preface);
-        println!($($arg)*);
-    }};
-}
-
 macro_rules! ferror {
     () => {{
         use console::style;
@@ -117,14 +104,14 @@ fn main() {
         .subcommand(App::new("init").about("Intialize a new tisk project based in this directory"))
         .get_matches();
 
-    if args.subcommand_matches("init").is_some() {
+    let result = if args.subcommand_matches("init").is_some() {
         match tisk::initialize() {
-            Ok(tisk::InitResult::Initialized) => println!("Initialized directory"),
-            Ok(tisk::InitResult::AlreadyInitialized) => println!("Already initialized"),
-            Err(why) => error!("Failed to initialize tisk project: {}", why),
+            Ok(tisk::InitResult::Initialized) => Ok(println!("Initialized directory")),
+            Ok(tisk::InitResult::AlreadyInitialized) => Ok(println!("Already initialized")),
+            Err(why) => ferror!("Failed to initialize tisk project: {}", why),
         }
     } else {
-        let result: Result<(),String> = match tisk::up_search(".", ".tisk") {
+        match tisk::up_search(".", ".tisk") {
             Err(why) => ferror!("Failure while searching for .tisk dir: {}", why),
             Ok(path) => match path {
                 None => ferror!("Invalid tisk project, could not found .tisk in this directory or any parent directory"),
@@ -160,12 +147,12 @@ fn main() {
                     }
                 },
             },
-        };
-        match result {
-            Ok(_) => (),
-            Err(err) => println!("{}", err),
-        };
-    }
+        }
+    };
+    match result {
+        Ok(_) => (),
+        Err(err) => println!("{}", err),
+    };
 }
 
 fn handle_add(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
