@@ -139,7 +139,7 @@ fn main() {
                                     debug!("Writing tasks");
                                     match tasks.write_all(&task_path) {
                                         Ok(_) => Ok(()),
-                                        Err(why) => ferror!("{}", why), //panic!("Failed to write tasks: {}", why),
+                                        Err(why) => ferror!("{}", why),
                                     }
                                 }
                             }
