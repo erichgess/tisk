@@ -47,10 +47,8 @@ fn configure_logger() {
     }
 }
 
-fn main() {
-    configure_logger();
-
-    let args = App::new("Tisk")
+fn configure_cli<'a, 'b>() -> App<'a,'b> {
+    App::new("Tisk")
         .version(option_env!("CARGO_PKG_VERSION").unwrap_or(""))
         .about("Task Management with scoping")
         .subcommand(
@@ -102,7 +100,12 @@ fn main() {
                 ),
         )
         .subcommand(App::new("init").about("Intialize a new tisk project based in this directory"))
-        .get_matches();
+}
+
+fn main() {
+    configure_logger();
+
+    let args = configure_cli().get_matches();
 
     let result = if args.subcommand_matches("init").is_some() {
         match tisk::initialize() {
@@ -132,6 +135,7 @@ fn main() {
                                     handle_list(&tasks, &ArgMatches::new())
                                 }
                             };
+
                             match command_result {
                                 Err(e) => Err(e),
                                 Ok(CommandEffect::Read) => Ok(()),
