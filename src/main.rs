@@ -29,6 +29,7 @@ fn main() {
         .about("Task Management with scoping")
         .subcommand(
             App::new("add")
+                .about("Add a new task to the project")
                 .arg(Arg::with_name("input").index(1).required(true))
                 .arg(
                     Arg::with_name("priority")
@@ -38,18 +39,22 @@ fn main() {
                         .help("Sets the priority for this task (0+)."),
                 ),
         )
-        .subcommand(App::new("close").arg(Arg::with_name("ID").index(1)))
+        .subcommand(App::new("close").about("Close a given task").arg(Arg::with_name("ID").index(1)))
         .subcommand(
-            App::new("edit").arg(Arg::with_name("ID").index(1).required(true)).arg(
-                Arg::with_name("priority")
-                    .long("priority")
-                    .short("p")
-                    .takes_value(true)
-                    .help("Sets the priority for this task (0+)."),
-            ),
+            App::new("edit")
+                .about("Change properties for an existing task")
+                .arg(Arg::with_name("ID").index(1).required(true))
+                .arg(
+                    Arg::with_name("priority")
+                        .long("priority")
+                        .short("p")
+                        .takes_value(true)
+                        .help("Sets the priority for this task (0+)."),
+                ),
         )
         .subcommand(
             App::new("list")
+                .about("List the tasks in this project")
                 .arg(
                     Arg::with_name("all")
                         .help("Display all tasks, regardless of state")
@@ -66,7 +71,7 @@ fn main() {
                         .long("open"),
                 ),
         )
-        .subcommand(App::new("init"))
+        .subcommand(App::new("init").about("Intialize a new tisk project based in this directory"))
         .get_matches();
 
     if args.subcommand_matches("init").is_some() {
