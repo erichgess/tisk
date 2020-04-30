@@ -1,4 +1,4 @@
-use clap::{App, Arg};
+use clap::{App, Arg, ArgMatches};
 use log::{debug, LevelFilter};
 use log4rs;
 use log4rs::{
@@ -120,58 +120,15 @@ fn main() {
                     match tisk::TaskList::read_tasks(&task_path) {
                         Err(why) => ferror!("Failed to read tasks: {}", why),
                         Ok(mut tasks) => {
-                            let command_result = if let Some(ref add) = args.subcommand_matches("add") {
-                                let name = add.value_of("input").unwrap();
-                                let priority: u32 = add.value_of("priority").unwrap_or("1").parse().unwrap();
-
-                                debug!("Adding new task to task list");
-                                tasks.add_task(name, priority);
-                                Ok(())
-                            } else if let Some(ref close) = args.subcommand_matches("close") {
-                                let id: u32 = close.value_of("ID").unwrap().parse().unwrap();
-
-                                debug!("Closing task with ID: {}", id);
-                                match tasks.close_task(id) {
-                                    None => ferror!("Could not find task with ID {}", id),
-                                    Some(t) => Ok(println!("Task {} was closed", t.id())),
-                                }
-                            } else if let Some(ref edit) = args.subcommand_matches("edit") {
-                                let id = parse_integer_arg(edit.value_of("ID"));
-                                match id {
-                                    Err(_) => ferror!("Invalid value given for ID, must be an integer."),
-                                    Ok(None) => ferror!("Must provide a task ID"),
-                                    Ok(Some(id)) => {
-                                        let priority = parse_integer_arg(edit.value_of("priority"));
-                                        match priority {
-                                            Err(_) => ferror!("Invalid value given for priority: must be an integer greater than or equal to 0."),
-                                            Ok(p) => match p {
-                                                None => Ok(()),
-                                                Some(p) => match tasks.set_priority(id, p) {
-                                                    None => ferror!("Could not find task with ID {}", id),
-                                                    Some((old, new)) => Ok(println!("Task {} priority set from {} to {}", id, old.priority(), new.priority())),
-                                                },
-                                            },
-                                        }
-                                    }
-                                }
+                            let command_result = if let Some(add) = args.subcommand_matches("add") {
+                                handle_add(&mut tasks, add)
+                            } else if let Some(close) = args.subcommand_matches("close") {
+                                handle_close(&mut tasks, close)
+                            } else if let Some(edit) = args.subcommand_matches("edit") {
+                                handle_edit(&mut tasks, edit)
                             } else {
-                                if let Some(ref list) = args.subcommand_matches("list") {
-                                    if list.is_present("all") {
-                                        let mut task_slice = tasks.get_all();
-                                        task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-                                        tisk::TaskList::print(task_slice);
-                                        Ok(())
-                                    } else if list.is_present("closed") {
-                                        let mut task_slice = tasks.get_closed();
-                                        task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-                                        tisk::TaskList::print(task_slice);
-                                        Ok(())
-                                    } else {
-                                        let mut task_slice = tasks.get_open();
-                                        task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-                                        tisk::TaskList::print(task_slice);
-                                        Ok(())
-                                    }
+                                if let Some(list) = args.subcommand_matches("list") {
+                                    handle_list(&tasks, list)
                                 } else {
                                     let mut task_slice = tasks.get_open();
                                     task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
@@ -197,6 +154,69 @@ fn main() {
             Ok(_) => (),
             Err(err) => println!("{}", err),
         };
+    }
+}
+
+fn handle_add(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<(), String> {
+    let name = args.value_of("input").unwrap();
+    let priority: u32 = args.value_of("priority").unwrap_or("1").parse().unwrap();
+
+    debug!("Adding new task to task list");
+    tasks.add_task(name, priority);
+    Ok(())
+}
+
+fn handle_close(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<(), String> {
+    let id = match parse_integer_arg(args.value_of("ID")) {
+        Err(_) => ferror!("Invalid ID provided, must be an integer greater than or equal to 0"),
+        Ok(None) => ferror!("No ID provided"),
+        Ok(Some(id)) => Ok(id),
+    }?;
+
+    debug!("Closing task with ID: {}", id);
+    match tasks.close_task(id) {
+        None => ferror!("Could not find task with ID {}", id),
+        Some(t) => Ok(println!("Task {} was closed", t.id())),
+    }
+}
+
+fn handle_edit(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<(), String> {
+    let id = parse_integer_arg(args.value_of("ID"));
+    match id {
+        Err(_) => ferror!("Invalid value given for ID, must be an integer."),
+        Ok(None) => ferror!("Must provide a task ID"),
+        Ok(Some(id)) => {
+            let priority = parse_integer_arg(args.value_of("priority"));
+            match priority {
+                Err(_) => ferror!("Invalid value given for priority: must be an integer greater than or equal to 0."),
+                Ok(p) => match p {
+                    None => Ok(()),
+                    Some(p) => match tasks.set_priority(id, p) {
+                        None => ferror!("Could not find task with ID {}", id),
+                        Some((old, new)) => Ok(println!("Task {} priority set from {} to {}", id, old.priority(), new.priority())),
+                    },
+                },
+            }
+        }
+    }
+}
+
+fn handle_list(tasks: &tisk::TaskList, args: &ArgMatches) -> Result<(), String> {
+    if args.is_present("all") {
+        let mut task_slice = tasks.get_all();
+        task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
+        tisk::TaskList::print(task_slice);
+        Ok(())
+    } else if args.is_present("closed") {
+        let mut task_slice = tasks.get_closed();
+        task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
+        tisk::TaskList::print(task_slice);
+        Ok(())
+    } else {
+        let mut task_slice = tasks.get_open();
+        task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
+        tisk::TaskList::print(task_slice);
+        Ok(())
     }
 }
 
