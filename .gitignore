@@ -1,5 +1,5 @@
 /target
 *.yaml
-^./tisk/*.yaml
+!./tisk/*.yaml
 *.swp
 /log
