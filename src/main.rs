@@ -33,75 +33,6 @@ macro_rules! ferror {
     }};
 }
 
-fn configure_logger() {
-    match log4rs::init_file("config/log4rs.yaml", Default::default()) {
-        Err(_) => {
-            let stdout = ConsoleAppender::builder().build();
-            let config = log4rs::config::Config::builder()
-                .appender(Appender::builder().build("stdout", Box::new(stdout)))
-                .build(Root::builder().appender("stdout").build(LevelFilter::Info))
-                .unwrap();
-            log4rs::init_config(config).unwrap();
-        }
-        Ok(_) => (),
-    }
-}
-
-fn configure_cli<'a, 'b>() -> App<'a,'b> {
-    App::new("Tisk")
-        .version(option_env!("CARGO_PKG_VERSION").unwrap_or(""))
-        .about("Task Management with scoping")
-        .subcommand(
-            App::new("add")
-                .about("Add a new task to the project")
-                .arg(Arg::with_name("input").index(1).required(true))
-                .arg(
-                    Arg::with_name("priority")
-                        .long("priority")
-                        .short("p")
-                        .takes_value(true)
-                        .help("Sets the priority for this task (0+)."),
-                ),
-        )
-        .subcommand(
-            App::new("close")
-                .about("Close a given task")
-                .arg(Arg::with_name("ID").index(1)),
-        )
-        .subcommand(
-            App::new("edit")
-                .about("Change properties for an existing task")
-                .arg(Arg::with_name("ID").index(1).required(true))
-                .arg(
-                    Arg::with_name("priority")
-                        .long("priority")
-                        .short("p")
-                        .takes_value(true)
-                        .help("Sets the priority for this task (0+)."),
-                ),
-        )
-        .subcommand(
-            App::new("list")
-                .about("List the tasks in this project")
-                .arg(
-                    Arg::with_name("all")
-                        .help("Display all tasks, regardless of state")
-                        .long("all"),
-                )
-                .arg(
-                    Arg::with_name("closed")
-                        .help("Display all closed tasks")
-                        .long("closed"),
-                )
-                .arg(
-                    Arg::with_name("open")
-                        .help("Display all open tasks")
-                        .long("open"),
-                ),
-        )
-        .subcommand(App::new("init").about("Intialize a new tisk project based in this directory"))
-}
-
 fn main() {
     configure_logger();
 
@@ -157,6 +88,61 @@ fn main() {
         Ok(_) => (),
         Err(err) => println!("{}", err),
     };
+}
+
+fn configure_cli<'a, 'b>() -> App<'a,'b> {
+    App::new("Tisk")
+        .version(option_env!("CARGO_PKG_VERSION").unwrap_or(""))
+        .about("Task Management with scoping")
+        .subcommand(
+            App::new("add")
+                .about("Add a new task to the project")
+                .arg(Arg::with_name("input").index(1).required(true))
+                .arg(
+                    Arg::with_name("priority")
+                        .long("priority")
+                        .short("p")
+                        .takes_value(true)
+                        .help("Sets the priority for this task (0+)."),
+                ),
+        )
+        .subcommand(
+            App::new("close")
+                .about("Close a given task")
+                .arg(Arg::with_name("ID").index(1)),
+        )
+        .subcommand(
+            App::new("edit")
+                .about("Change properties for an existing task")
+                .arg(Arg::with_name("ID").index(1).required(true))
+                .arg(
+                    Arg::with_name("priority")
+                        .long("priority")
+                        .short("p")
+                        .takes_value(true)
+                        .help("Sets the priority for this task (0+)."),
+                ),
+        )
+        .subcommand(
+            App::new("list")
+                .about("List the tasks in this project")
+                .arg(
+                    Arg::with_name("all")
+                        .help("Display all tasks, regardless of state")
+                        .long("all"),
+                )
+                .arg(
+                    Arg::with_name("closed")
+                        .help("Display all closed tasks")
+                        .long("closed"),
+                )
+                .arg(
+                    Arg::with_name("open")
+                        .help("Display all open tasks")
+                        .long("open"),
+                ),
+        )
+        .subcommand(App::new("init").about("Intialize a new tisk project based in this directory"))
 }
 
 fn handle_add(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
@@ -230,5 +216,19 @@ fn parse_integer_arg(arg: Option<&str>) -> Result<Option<u32>, std::num::ParseIn
     match arg {
         None => Ok(None),
         Some(v) => v.parse().map(|p| Some(p)),
+    }
+}
+
+fn configure_logger() {
+    match log4rs::init_file("config/log4rs.yaml", Default::default()) {
+        Err(_) => {
+            let stdout = ConsoleAppender::builder().build();
+            let config = log4rs::config::Config::builder()
+                .appender(Appender::builder().build("stdout", Box::new(stdout)))
+                .build(Root::builder().appender("stdout").build(LevelFilter::Info))
+                .unwrap();
+            log4rs::init_config(config).unwrap();
+        }
+        Ok(_) => (),
     }
 }
