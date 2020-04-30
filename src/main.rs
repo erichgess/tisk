@@ -38,10 +38,13 @@ fn main() {
 
     let args = configure_cli().get_matches();
 
-    match run(&args) {
-        Ok(_) => (),
-        Err(err) => println!("{}", err),
-    };
+    std::process::exit(match run(&args) {
+        Ok(_) => 0,
+        Err(err) =>{
+            println!("> {}", err);
+            1
+        }
+    });
 }
 
 fn run(args: &ArgMatches) -> Result<(), String>{
