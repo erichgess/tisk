@@ -7,7 +7,19 @@ use log4rs::{
 };
 extern crate tisk;
 
-//TODO: Could have this return a formatted string rather than print to stdout
+/**
+ * This indicates what effect executing  a command had on the task list.
+ * `Read` means that the command only read from the task list and thus
+ * no changes were made and nothing needs to be written.
+ *
+ * `Write` means that the command modified the TaskList or a Task in the
+ * TaskList and the changes will need to be written to disk.
+ */
+enum CommandEffect {
+    Write,
+    Read,
+}
+
 macro_rules! error {
     () => {{
         use console::style;
@@ -132,12 +144,14 @@ fn main() {
                                 } else {
                                     let mut task_slice = tasks.get_open();
                                     task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-                                    Ok(tisk::TaskList::print(task_slice))
+                                    tisk::TaskList::print(task_slice);
+                                    Ok(CommandEffect::Read)
                                 }
                             };
                             match command_result {
                                 Err(e) => Err(e),
-                                Ok(()) => {
+                                Ok(CommandEffect::Read) => Ok(()),
+                                Ok(CommandEffect::Write) => {
                                     debug!("Writing tasks");
                                     match tasks.write_all(&task_path) {
                                         Ok(_) => Ok(()),
@@ -157,16 +171,16 @@ fn main() {
     }
 }
 
-fn handle_add(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<(), String> {
+fn handle_add(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
     let name = args.value_of("input").unwrap();
     let priority: u32 = args.value_of("priority").unwrap_or("1").parse().unwrap();
 
     debug!("Adding new task to task list");
     tasks.add_task(name, priority);
-    Ok(())
+    Ok(CommandEffect::Write)
 }
 
-fn handle_close(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<(), String> {
+fn handle_close(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
     let id = match parse_integer_arg(args.value_of("ID")) {
         Err(_) => ferror!("Invalid ID provided, must be an integer greater than or equal to 0"),
         Ok(None) => ferror!("No ID provided"),
@@ -176,11 +190,14 @@ fn handle_close(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<(), Str
     debug!("Closing task with ID: {}", id);
     match tasks.close_task(id) {
         None => ferror!("Could not find task with ID {}", id),
-        Some(t) => Ok(println!("Task {} was closed", t.id())),
+        Some(t) =>{
+            println!("Task {} was closed", t.id());
+            Ok(CommandEffect::Write)
+        },
     }
 }
 
-fn handle_edit(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<(), String> {
+fn handle_edit(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
     let id = parse_integer_arg(args.value_of("ID"));
     match id {
         Err(_) => ferror!("Invalid value given for ID, must be an integer."),
@@ -190,10 +207,13 @@ fn handle_edit(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<(), Stri
             match priority {
                 Err(_) => ferror!("Invalid value given for priority: must be an integer greater than or equal to 0."),
                 Ok(p) => match p {
-                    None => Ok(()),
+                    None => Ok(CommandEffect::Read),
                     Some(p) => match tasks.set_priority(id, p) {
                         None => ferror!("Could not find task with ID {}", id),
-                        Some((old, new)) => Ok(println!("Task {} priority set from {} to {}", id, old.priority(), new.priority())),
+                        Some((old, new)) => {
+                            println!("Task {} priority set from {} to {}", id, old.priority(), new.priority());
+                            Ok(CommandEffect::Write)
+                        },
                     },
                 },
             }
@@ -201,23 +221,21 @@ fn handle_edit(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<(), Stri
     }
 }
 
-fn handle_list(tasks: &tisk::TaskList, args: &ArgMatches) -> Result<(), String> {
+fn handle_list(tasks: &tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
     if args.is_present("all") {
         let mut task_slice = tasks.get_all();
         task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
         tisk::TaskList::print(task_slice);
-        Ok(())
     } else if args.is_present("closed") {
         let mut task_slice = tasks.get_closed();
         task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
         tisk::TaskList::print(task_slice);
-        Ok(())
     } else {
         let mut task_slice = tasks.get_open();
         task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
         tisk::TaskList::print(task_slice);
-        Ok(())
     }
+    Ok(CommandEffect::Read)
 }
 
 fn parse_integer_arg(arg: Option<&str>) -> Result<Option<u32>, std::num::ParseIntError> {
