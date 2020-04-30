@@ -7,6 +7,15 @@ use log4rs::{
 };
 extern crate tisk;
 
+macro_rules! error {
+    () => (println!("Error"));
+    ($($arg:tt)*) => ({
+        use console::style;
+        print!("{}: ", style("Error").red());
+        println!($($arg)*);
+    });
+}
+
 fn configure_logger() {
     match log4rs::init_file("config/log4rs.yaml", Default::default()) {
         Err(_) => {
@@ -39,7 +48,11 @@ fn main() {
                         .help("Sets the priority for this task (0+)."),
                 ),
         )
-        .subcommand(App::new("close").about("Close a given task").arg(Arg::with_name("ID").index(1)))
+        .subcommand(
+            App::new("close")
+                .about("Close a given task")
+                .arg(Arg::with_name("ID").index(1)),
+        )
         .subcommand(
             App::new("edit")
                 .about("Change properties for an existing task")
@@ -78,81 +91,81 @@ fn main() {
         match tisk::initialize() {
             Ok(tisk::InitResult::Initialized) => println!("Initialized directory"),
             Ok(tisk::InitResult::AlreadyInitialized) => println!("Already initialized"),
-            Err(why) => panic!("Failed to initialize tisk project: {}", why),
+            Err(why) => error!("Failed to initialize tisk project: {}", why),
         }
     } else {
-        let task_path = match tisk::up_search(".", ".tisk") {
+        match tisk::up_search(".", ".tisk") {
+            Err(why) => error!("Failure while searching for .tisk dir: {}", why),
             Ok(path) => match path {
-                Some(p) => p,
-                None => panic!("Invalid tisk project, could not found .tisk in this directory or any parent directory"),
-            },
-            Err(why) => panic!("Failure while searching for .tisk dir: {}", why),
-        };
+                None => error!("Invalid tisk project, could not found .tisk in this directory or any parent directory"),
+                Some(task_path) => {
+                    let mut tasks = match tisk::TaskList::read_tasks(&task_path) {
+                        Err(why) => panic!("Failed to read tasks: {}", why),
+                        Ok(tasks) => tasks,
+                    };
 
-        let mut tasks = match tisk::TaskList::read_tasks(&task_path) {
-            Err(why) => panic!("Failed to read tasks: {}", why),
-            Ok(tasks) => tasks,
-        };
+                    if let Some(ref add) = args.subcommand_matches("add") {
+                        let name = add.value_of("input").unwrap();
+                        let priority: u32 = add.value_of("priority").unwrap_or("1").parse().unwrap();
 
-        if let Some(ref add) = args.subcommand_matches("add") {
-            let name = add.value_of("input").unwrap();
-            let priority: u32 = add.value_of("priority").unwrap_or("1").parse().unwrap();
+                        debug!("Adding new task to task list");
+                        tasks.add_task(name, priority);
+                    } else if let Some(ref close) = args.subcommand_matches("close") {
+                        let id: u32 = close.value_of("ID").unwrap().parse().unwrap();
 
-            debug!("Adding new task to task list");
-            tasks.add_task(name, priority);
-        } else if let Some(ref close) = args.subcommand_matches("close") {
-            let id: u32 = close.value_of("ID").unwrap().parse().unwrap();
-
-            debug!("Closing task with ID: {}", id);
-            match tasks.close_task(id) {
-                None => println!("Could not find task with ID {}", id),
-                Some(t) => println!("Task {} was closed", t.id()),
-            }
-        } else if let Some(ref edit) = args.subcommand_matches("edit") {
-            let id = parse_integer_arg(edit.value_of("ID"));
-            match id {
-                Err(_) => println!("Invalid value given for ID, must be an integer."),
-                Ok(None) => println!("Must provide a task ID"),
-                Ok(Some(id)) => {
-                    let priority = parse_integer_arg(edit.value_of("priority"));
-                    match priority {
-                        Err(_) => println!("Invalid value given for priority: must be an integer greater than or equal to 0."),
-                        Ok(p) => match p {
-                            None => (),
-                            Some(p) => match tasks.set_priority(id, p) {
-                                None => println!("Could not find task with ID {}", id),
-                                Some((old, new)) => println!("Task {} priority set from {} to {}", id, old.priority(), new.priority()),
-                            },
-                        },
+                        debug!("Closing task with ID: {}", id);
+                        match tasks.close_task(id) {
+                            None => error!("Could not find task with ID {}", id),
+                            Some(t) => println!("Task {} was closed", t.id()),
+                        }
+                    } else if let Some(ref edit) = args.subcommand_matches("edit") {
+                        let id = parse_integer_arg(edit.value_of("ID"));
+                        match id {
+                            Err(_) => error!("Invalid value given for ID, must be an integer."),
+                            Ok(None) => error!("Must provide a task ID"),
+                            Ok(Some(id)) => {
+                                let priority = parse_integer_arg(edit.value_of("priority"));
+                                match priority {
+                                    Err(_) => error!("Invalid value given for priority: must be an integer greater than or equal to 0."),
+                                    Ok(p) => match p {
+                                        None => (),
+                                        Some(p) => match tasks.set_priority(id, p) {
+                                            None => error!("Could not find task with ID {}", id),
+                                            Some((old, new)) => println!("Task {} priority set from {} to {}", id, old.priority(), new.priority()),
+                                        },
+                                    },
+                                }
+                            }
+                        }
+                    } else {
+                        if let Some(ref list) = args.subcommand_matches("list") {
+                            if list.is_present("all") {
+                                let mut task_slice = tasks.get_all();
+                                task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
+                                tisk::TaskList::print(task_slice);
+                            } else if list.is_present("closed") {
+                                let mut task_slice = tasks.get_closed();
+                                task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
+                                tisk::TaskList::print(task_slice);
+                            } else {
+                                let mut task_slice = tasks.get_open();
+                                task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
+                                tisk::TaskList::print(task_slice);
+                            }
+                        } else {
+                            let mut task_slice = tasks.get_open();
+                            task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
+                            tisk::TaskList::print(task_slice);
+                        }
                     }
-                }
-            }
-        } else {
-            if let Some(ref list) = args.subcommand_matches("list") {
-                if list.is_present("all") {
-                    let mut task_slice = tasks.get_all();
-                    task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-                    tisk::TaskList::print(task_slice);
-                } else if list.is_present("closed") {
-                    let mut task_slice = tasks.get_closed();
-                    task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-                    tisk::TaskList::print(task_slice);
-                } else {
-                    let mut task_slice = tasks.get_open();
-                    task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-                    tisk::TaskList::print(task_slice);
-                }
-            } else {
-                let mut task_slice = tasks.get_open();
-                task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-                tisk::TaskList::print(task_slice);
-            }
-        }
-        debug!("Writing tasks");
-        match tasks.write_all(&task_path) {
-            Ok(_) => (),
-            Err(why) => panic!("Failed to write tasks: {}", why),
-        }
+                    debug!("Writing tasks");
+                    match tasks.write_all(&task_path) {
+                        Ok(_) => (),
+                        Err(why) => panic!("Failed to write tasks: {}", why),
+                    }
+                },
+            },
+        };
     }
 }
 
