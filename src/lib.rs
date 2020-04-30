@@ -1,9 +1,7 @@
 extern crate chrono;
 
 use chrono::prelude::*;
-use log::debug;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
 
@@ -140,14 +138,12 @@ impl Task {
 
 pub struct TaskList {
     tasks: Vec<Task>,
-    modified_tasks: HashSet<u32>,
 }
 
 impl TaskList {
     pub fn new() -> TaskList {
         TaskList {
             tasks: vec![],
-            modified_tasks: HashSet::new(),
         }
     }
     pub fn read_tasks(path: &std::path::PathBuf) -> std::io::Result<TaskList> {
@@ -159,7 +155,6 @@ impl TaskList {
         }
         Ok(TaskList {
             tasks,
-            modified_tasks: HashSet::new(),
         })
     }
 
@@ -185,19 +180,7 @@ impl TaskList {
      * If no task is found with the given ID then return `None`.
      */
     fn get_mut(&mut self, id: u32) -> Option<&mut Task> {
-        debug!("Get mut");
-        let task = self.tasks.iter_mut().find(|t| t.id == id);
-
-        // Assume that any call to get a mutable reference to a task
-        // will result in that task being modified.
-        match &task {
-            Some(task) => {
-                debug!("Adding id to the set of modified tasks");
-                self.modified_tasks.insert(task.id);
-            }
-            None => (),
-        }
-        task
+        self.tasks.iter_mut().find(|t| t.id == id)
     }
 
     pub fn get(&self, id: u32) -> Option<&Task> {
@@ -214,7 +197,6 @@ impl TaskList {
             priority: priority,
         };
         self.tasks.push(t);
-        self.modified_tasks.insert(id);
 
         id
     }
@@ -240,23 +222,7 @@ impl TaskList {
         }
     }
 
-    pub fn write_modified(&self, task_path: &std::path::PathBuf) -> std::io::Result<u32> {
-        debug!("Tasks to write: {}", self.modified_tasks.len());
-        let mut count = 0;
-        for id in self.modified_tasks.iter() {
-            match self.get(*id) {
-                Some(task) => {
-                    Task::write(task, &task_path)?;
-                    count += 1;
-                }
-                None => (),
-            }
-        }
-        Ok(count)
-    }
-
     pub fn write_all(&self, task_path: &std::path::PathBuf) -> std::io::Result<u32> {
-        debug!("Tasks to write: {}", self.modified_tasks.len());
         let mut count = 0;
         for task in self.tasks.iter() {
             Task::write(task, &task_path)?;
