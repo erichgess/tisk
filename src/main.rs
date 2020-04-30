@@ -65,8 +65,22 @@ fn run(args: &ArgMatches) -> Result<(), String>{
                 match tisk::TaskList::read_tasks(&task_path) {
                     Err(why) => ferror!("Failed to read tasks: {}", why),
                     Ok(mut tasks) => {
+                        // TODO: This was an experiment to look at the idea of decoupling the
+                        // application of a command to the in memory data and the act of then
+                        // writing any changes to disk.  Now that the implementation is more or
+                        // less done, think about if the design actually works.  My hypothesis
+                        // was that doing this decoupling would make it harder to fail to write
+                        // changed data to disk.
+                        //
+                        // 1. Does it make it easer to reason about the code
+                        // 2. Does it make the code safer or more robust
+                        // 3. What risks does this design bring
+
+                        
+                        // Apply the given command to the in memory TaskList
                         let result = execute_command(&mut tasks, &args);
 
+                        // Determine if the TaskList needs to be written to disk
                         match result {
                             Err(e) => Err(e),
                             Ok(CommandEffect::Read) => Ok(()),
