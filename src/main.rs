@@ -142,10 +142,7 @@ fn main() {
                                 if let Some(list) = args.subcommand_matches("list") {
                                     handle_list(&tasks, list)
                                 } else {
-                                    let mut task_slice = tasks.get_open();
-                                    task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-                                    tisk::TaskList::print(task_slice);
-                                    Ok(CommandEffect::Read)
+                                    handle_list(&tasks, &ArgMatches::new())
                                 }
                             };
                             match command_result {
