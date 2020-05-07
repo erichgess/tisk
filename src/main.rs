@@ -1,3 +1,5 @@
+mod tasks;
+
 use clap::{App, Arg, ArgMatches};
 use log::{debug, LevelFilter};
 use log4rs;
@@ -5,7 +7,7 @@ use log4rs::{
     append::console::ConsoleAppender,
     config::{Appender, Root},
 };
-extern crate tisk;
+use tasks::{Note, TaskList};
 
 /**
  * This indicates what effect executing  a command had on the task list.
@@ -64,7 +66,7 @@ fn run(args: &ArgMatches) -> Result<(), String> {
         match find_task_dir() {
             Err(why) => Err(why),
             Ok(task_path) => {
-                match tisk::TaskList::read_tasks(&task_path) {
+                match TaskList::read_tasks(&task_path) {
                     Err(why) => ferror!("Failed to read tasks: {}", why),
                     Ok(mut tasks) => {
                         // TODO: This was an experiment to look at the idea of decoupling the
@@ -113,7 +115,7 @@ fn run(args: &ArgMatches) -> Result<(), String> {
 // TODO: I kind of feel like passing this &mut TaskList into this function breaks the concept of
 // the owner determining who can modify an entity
 fn execute_command(
-    tasks: &mut tisk::TaskList,
+    tasks: &mut TaskList,
     checked_out_task: Option<u32>,
     args: &ArgMatches,
 ) -> Result<CommandEffect, String> {
@@ -219,7 +221,7 @@ fn configure_cli<'a, 'b>() -> App<'a, 'b> {
         .subcommand(App::new("init").about("Intialize a new tisk project based in this directory"))
 }
 
-fn handle_add(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+fn handle_add(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
     let name = args.value_of("input").unwrap();
     let priority: u32 = args.value_of("priority").unwrap_or("1").parse().unwrap();
 
@@ -228,7 +230,7 @@ fn handle_add(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEf
     Ok(CommandEffect::Write)
 }
 
-fn handle_close(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+fn handle_close(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
     let id = match parse_integer_arg(args.value_of("ID")) {
         Err(_) => {
             return ferror!("Invalid ID provided, must be an integer greater than or equal to 0")
@@ -247,7 +249,7 @@ fn handle_close(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<Command
     }
 }
 
-fn handle_checkout(tasks: &tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+fn handle_checkout(tasks: &TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
     let id = match parse_integer_arg(args.value_of("ID")) {
         Err(_) => {
             return ferror!("Invalid ID provided, must be an integer greater than or equal to 0")
@@ -270,7 +272,7 @@ fn handle_checkin() -> Result<CommandEffect, String> {
     Ok(CommandEffect::CheckinTask)
 }
 
-fn handle_edit(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+fn handle_edit(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
     let id = match parse_integer_arg(args.value_of("ID")) {
         Err(_) => {
             return ferror!("Invalid ID provided, must be an integer greater than or equal to 0")
@@ -304,7 +306,7 @@ fn handle_edit(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandE
 }
 
 fn handle_note(
-    tasks: &mut tisk::TaskList,
+    tasks: &mut TaskList,
     checked_out_task: Option<u32>,
     args: &ArgMatches,
 ) -> Result<CommandEffect, String> {
@@ -324,7 +326,7 @@ fn handle_note(
             .get(id)
             .ok_or(format!("Could not found task with ID {}", id))?
             .notes();
-        tisk::Note::print_notes(notes);
+        Note::print_notes(notes);
 
         Ok(CommandEffect::Read)
     } else {
@@ -347,19 +349,19 @@ fn handle_note(
     }
 }
 
-fn handle_list(tasks: &tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+fn handle_list(tasks: &TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
     if args.is_present("all") {
         let mut task_slice = tasks.get_all();
         task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-        tisk::TaskList::print(task_slice);
+        TaskList::print(task_slice);
     } else if args.is_present("closed") {
         let mut task_slice = tasks.get_closed();
         task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-        tisk::TaskList::print(task_slice);
+        TaskList::print(task_slice);
     } else {
         let mut task_slice = tasks.get_open();
         task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-        tisk::TaskList::print(task_slice);
+        TaskList::print(task_slice);
     }
     Ok(CommandEffect::Read)
 }
