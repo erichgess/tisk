@@ -122,44 +122,20 @@ impl Note {
         }; // subtract id_width + 1 to account for a space between columns
 
         // Print the column headers
-        Note::print_notes_header(id_width, note_width);
+        let tf = TableFormatter {
+            col_widths: vec![id_width, note_width],
+        };
+        tf.print_header(vec!["ID", "Note"]);
 
         // print each task, in the order given by the input vector
         let mut idx = 1;
-        for task in notes.iter() {
-            Note::print_note(task, idx, id_width, note_width);
+        for note in notes.iter() {
+            //Note::print_note(task, idx, id_width, note_width);
+            let mut row = TableRow::new();
+            row.push(idx);
+            row.push(note.note());
+            tf.print_row(row);
             idx += 1;
-        }
-    }
-
-    fn print_notes_header(id_width: usize, note_width: usize) {
-        use console::Style;
-        let ul = Style::new().underlined();
-        println!(
-            "{0: <id_width$} {1: <note_width$}",
-            ul.apply_to("ID"),
-            ul.apply_to("Note"),
-            id_width = id_width,
-            note_width = note_width,
-        );
-    }
-
-    fn print_note(note: &Note, id: u32, id_width: usize, note_width: usize) {
-        // Check the length of the name, if it is longer than `note_width` it will need to be
-        // printed on multiple lines
-        let lines = TaskList::format_to_column(&note.note, note_width, 7);
-        let mut first_line = true;
-        for line in lines {
-            if first_line {
-                print!("{0: <id_width$} ", id, id_width = id_width);
-            } else {
-                print!("{0: <id_width$} ", "", id_width = id_width);
-            }
-
-            print!("{0: <name_width$}", line, name_width = note_width);
-            println!();
-
-            first_line = false;
         }
     }
 }
@@ -435,7 +411,7 @@ impl TaskList {
      * attempt to break lines at spaces but if a word is longer than
      * the given column width it will split on the word.
      */
-    fn format_to_column(text: &String, width: usize, split_limit: usize) -> Vec<&str> {
+    fn format_to_column(text: &String, width: usize, split_limit: usize) -> Vec<String> {
         let mut index = 0;
         let mut chars = text.chars();
         let mut breaks = vec![];
@@ -489,9 +465,75 @@ impl TaskList {
         for b in breaks {
             let start = b.0;
             let end = if b.1 > text.len() { text.len() } else { b.1 };
-            lines.push(text.get(start..end).unwrap());
+            lines.push(text.get(start..end).unwrap().into());
         }
         lines
+    }
+}
+
+struct TableRow<'a> {
+    row: Vec<Box<dyn std::fmt::Display + 'a>>,
+}
+
+impl<'a> TableRow<'a> {
+    pub fn new() -> Self {
+        Self { row: Vec::new() }
+    }
+
+    pub fn push<S: std::fmt::Display + 'a>(&mut self, col: S) {
+        self.row.push(Box::new(col))
+    }
+}
+
+struct TableFormatter {
+    col_widths: Vec<usize>,
+}
+
+impl TableFormatter {
+    pub fn print_header(&self, headers: Vec<&str>) {
+        use console::Style;
+        let ul = Style::new().underlined();
+        let mut idx = 0;
+        for header in headers.iter() {
+            print!(
+                "{0: <width$}",
+                ul.apply_to(header),
+                width = self.col_widths[idx]
+            );
+            idx += 1;
+            if idx < headers.len() {
+                print!(" ");
+            }
+        }
+        println!();
+    }
+
+    pub fn print_row(&self, cols: TableRow) {
+        let mut longest_column = 1;
+        let mut col_text = vec![];
+        for i in 0..cols.row.len() {
+            let text = cols.row[i].to_string().clone();
+            let fitted_text = TaskList::format_to_column(&text, self.col_widths[i], 7);
+            if fitted_text.len() > longest_column {
+                longest_column = fitted_text.len();
+            }
+            col_text.push(fitted_text.clone());
+        }
+
+        for line in 0..longest_column {
+            for col in 0..cols.row.len() {
+                if line < 1 {
+                    print!("{0: <width$}", cols.row[col], width = self.col_widths[col]);
+                } else {
+                    print!("{0: <width$}", "", width = self.col_widths[col]);
+                }
+
+                if col < cols.row.len() - 1 {
+                    print!(" ");
+                }
+            }
+            println!();
+        }
     }
 }
 
