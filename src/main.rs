@@ -324,13 +324,8 @@ fn handle_note(
             .get(id)
             .ok_or(format!("Could not found task with ID {}", id))?
             .notes();
+        tisk::Note::print_notes(notes);
 
-        if notes.is_empty() {
-            println!("No tasks.");
-        }
-        for note in notes {
-            println!("{}", note.note());
-        }
         Ok(CommandEffect::Read)
     } else {
         let note = match args.value_of("NOTE") {
