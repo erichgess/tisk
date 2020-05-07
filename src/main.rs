@@ -84,7 +84,7 @@ fn run(args: &ArgMatches) -> Result<(), String> {
                         println!("Checkout: {:?}", checked_out_task);
 
                         // Apply the given command to the in memory TaskList
-                        let result = execute_command(&mut tasks, &mut checked_out_task, &args);
+                        let result = execute_command(&mut tasks, checked_out_task, &args);
 
                         // Determine if the TaskList needs to be written to disk
                         match result {
@@ -115,7 +115,7 @@ fn run(args: &ArgMatches) -> Result<(), String> {
 // the owner determining who can modify an entity
 fn execute_command(
     tasks: &mut tisk::TaskList,
-    checked_out_task: &Option<u32>,
+    checked_out_task: Option<u32>,
     args: &ArgMatches,
 ) -> Result<CommandEffect, String> {
     if let Some(add) = args.subcommand_matches("add") {
@@ -125,7 +125,7 @@ fn execute_command(
     } else if let Some(edit) = args.subcommand_matches("edit") {
         handle_edit(tasks, edit)
     } else if let Some(note) = args.subcommand_matches("note") {
-        handle_note(tasks, note)
+        handle_note(tasks, checked_out_task, note)
     } else if let Some(checkout) = args.subcommand_matches("checkout") {
         handle_checkout(tasks, checkout)
     } else if let Some(_) = args.subcommand_matches("checkin") {
@@ -193,9 +193,9 @@ fn configure_cli<'a, 'b>() -> App<'a, 'b> {
         )
         .subcommand(
             App::new("note")
-                .about("Add a note to a specific task")
-                .arg(Arg::with_name("ID").index(1).required(true))
-                .arg(Arg::with_name("NOTE").index(2))
+                .about("Add a note to a specific task.  Will attempt to add a note to the checked out task, unless the --id flag is used")
+                .arg(Arg::with_name("NOTE").index(1))
+                .arg(Arg::with_name("ID").long("id"))
                 .arg(Arg::with_name("list").long("list").short("l")),
         )
         .subcommand(
@@ -304,16 +304,23 @@ fn handle_edit(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandE
     }
 }
 
-fn handle_note(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
-    let id = match parse_integer_arg(args.value_of("ID")) {
-        Err(_) => {
-            return ferror!("Invalid ID provided, must be an integer greater than or equal to 0")
-        }
-        Ok(None) => return ferror!("No ID provided"),
-        Ok(Some(id)) => id,
+fn handle_note(
+    tasks: &mut tisk::TaskList,
+    checked_out_task: Option<u32>,
+    args: &ArgMatches,
+) -> Result<CommandEffect, String> {
+    let id = match args.value_of("ID") {
+        Some(id) => match parse_integer_arg(Some(id)).or_else(|err| Err(format!("{}", err)))? {
+            Some(id) => id,
+            None => return ferror!("Must have a task checked out or provide an id"),
+        },
+        None => match checked_out_task {
+            Some(id) => id,
+            None => return ferror!("Must have a task checked out or provide an id"),
+        },
     };
 
-    if args.is_present("list") {
+    if args.is_present("list") || !args.is_present("NOTE") {
         let notes = tasks
             .get(id)
             .ok_or(format!("Could not found task with ID {}", id))?
