@@ -79,9 +79,8 @@ fn run(args: &ArgMatches) -> Result<(), String> {
                         // 3. What risks does this design bring
 
                         // load checked out task, if one is checked out
-                        let mut checked_out_task =
+                        let checked_out_task =
                             read_checkout(&task_path).or_else(|err| ferror!("{}", err))?;
-                        println!("Checkout: {:?}", checked_out_task);
 
                         // Apply the given command to the in memory TaskList
                         let result = execute_command(&mut tasks, checked_out_task, &args);
