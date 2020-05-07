@@ -53,10 +53,6 @@ fn main() {
 }
 
 fn run(args: &ArgMatches) -> Result<(), String> {
-    // TODO: I don't like how the if blocks break down into "init" in one very simple
-    // block, then another big block that handles all other subcommands.  What I don't
-    // like is that it's not obvious why that is (because init is a meta step which acts
-    // on the setup of tisk rather than an operation on the task data).
     if args.subcommand_matches("init").is_some() {
         match tisk::initialize() {
             Ok(tisk::InitResult::Initialized) => Ok(println!("Initialized directory")),
