@@ -265,6 +265,10 @@ fn handle_note(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandE
             .get(id)
             .ok_or(format!("Could not found task with ID {}", id))?
             .notes();
+
+        if notes.is_empty() {
+            println!("No tasks.");
+        }
         for note in notes {
             println!("{}", note.note());
         }
@@ -273,7 +277,7 @@ fn handle_note(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandE
         let note = match args.value_of("NOTE") {
             None => {
                 return ferror!(
-                    "Invalid note provided, must be an integer greater than or equal to 0"
+                    "Must provide a note to add. Or use the --list flag to list notes on this task"
                 )
             }
             Some(note) => note,
