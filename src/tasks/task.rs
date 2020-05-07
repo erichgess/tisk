@@ -3,8 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::prelude::*;
 
-use super::list::{TableFormatter, TableRow};
-
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub enum Status {
     Open,
@@ -27,36 +25,6 @@ impl Note {
 
     pub fn note(&self) -> &str {
         &self.note
-    }
-
-    pub fn print_notes(notes: Vec<&Note>) {
-        use console::Term;
-
-        // Get terminal dimensions so that we can compute how wide columns can be and
-        // how to format text properly
-        // Assume that we'll always have at least 20 columns in the terminal (as even that small
-        // would be unuseable for a person.
-        let (_, cols) = Term::stdout()
-            .size_checked()
-            .expect("Could not get terminal details");
-
-        let id_width: usize = 4;
-
-        // Print the column headers
-        let mut tf = TableFormatter::new(cols as usize);
-        tf.set_columns(vec![("ID", Some(id_width)), ("Note", None)]);
-        tf.print_header();
-
-        // print each task, in the order given by the input vector
-        let mut idx = 1;
-        for note in notes.iter() {
-            //Note::print_note(task, idx, id_width, note_width);
-            let mut row = TableRow::new();
-            row.push(idx);
-            row.push(note.note());
-            tf.print_row(row);
-            idx += 1;
-        }
     }
 }
 

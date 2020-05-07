@@ -1,3 +1,4 @@
+mod print;
 mod tasks;
 
 use clap::{App, Arg, ArgMatches};
@@ -7,7 +8,7 @@ use log4rs::{
     append::console::ConsoleAppender,
     config::{Appender, Root},
 };
-use tasks::{Note, TaskList};
+use tasks::TaskList;
 
 /**
  * This indicates what effect executing  a command had on the task list.
@@ -326,7 +327,7 @@ fn handle_note(
             .get(id)
             .ok_or(format!("Could not found task with ID {}", id))?
             .notes();
-        Note::print_notes(notes);
+        print::notes(notes);
 
         Ok(CommandEffect::Read)
     } else {
@@ -353,15 +354,15 @@ fn handle_list(tasks: &TaskList, args: &ArgMatches) -> Result<CommandEffect, Str
     if args.is_present("all") {
         let mut task_slice = tasks.get_all();
         task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-        TaskList::print(task_slice);
+        print::task_list(task_slice);
     } else if args.is_present("closed") {
         let mut task_slice = tasks.get_closed();
         task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-        TaskList::print(task_slice);
+        print::task_list(task_slice);
     } else {
         let mut task_slice = tasks.get_open();
         task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
-        TaskList::print(task_slice);
+        print::task_list(task_slice);
     }
     Ok(CommandEffect::Read)
 }
