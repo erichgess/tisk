@@ -122,10 +122,9 @@ impl Note {
         }; // subtract id_width + 1 to account for a space between columns
 
         // Print the column headers
-        let tf = TableFormatter {
-            col_widths: vec![id_width, note_width],
-        };
-        tf.print_header(vec!["ID", "Note"]);
+        let mut tf = TableFormatter::new(cols as usize);
+        tf.set_columns(vec![("ID", Some(id_width)), ("Note", None)]);
+        tf.print_header();
 
         // print each task, in the order given by the input vector
         let mut idx = 1;
@@ -486,22 +485,64 @@ impl<'a> TableRow<'a> {
 }
 
 struct TableFormatter {
+    width: usize, // the width, in characters, of the table
     col_widths: Vec<usize>,
+    cols: Vec<String>,
 }
 
 impl TableFormatter {
-    pub fn print_header(&self, headers: Vec<&str>) {
+    pub fn new(width: usize) -> Self {
+        Self {
+            width,
+            col_widths: Vec::new(),
+            cols: Vec::new(),
+        }
+    }
+
+    pub fn set_columns(&mut self, cols: Vec<(&str, Option<usize>)>) {
+        // Add up the widths of the explicitly defined columns
+        // adding 1 to account for a space between each column
+        let with_width = cols.iter().filter(|x| x.1.is_some());
+        let allocated_width: usize = with_width.map(|x| x.1.unwrap() + 1).sum();
+
+        // Count the number of columsn without a width
+        let without_width = cols.iter().filter(|x| x.1.is_none());
+        let num_without_width = without_width.count();
+
+        // Get the amount of space which is not explicitly assigned to a column
+        // Divide evenly between the columns without width
+        if self.width < allocated_width {
+            panic!("Total width of columns is greater than the width of the table")
+        }
+        let remaining_space = self.width - allocated_width;
+        let width_per_col = remaining_space / num_without_width;
+
+        // Record the columns and their widths
+        for (label, width) in cols {
+            match width {
+                Some(w) => {
+                    self.cols.push(String::from(label));
+                    self.col_widths.push(w);
+                }
+                None => {
+                    self.cols.push(String::from(label));
+                    self.col_widths.push(width_per_col);
+                }
+            }
+        }
+    }
+
+    pub fn print_header(&self) {
         use console::Style;
         let ul = Style::new().underlined();
-        let mut idx = 0;
-        for header in headers.iter() {
+        let num_cols = self.cols.len();
+        for i in 0..num_cols {
             print!(
                 "{0: <width$}",
-                ul.apply_to(header),
-                width = self.col_widths[idx]
+                ul.apply_to(&self.cols[i]),
+                width = self.col_widths[i]
             );
-            idx += 1;
-            if idx < headers.len() {
+            if i < num_cols - 1 {
                 print!(" ");
             }
         }
@@ -522,8 +563,12 @@ impl TableFormatter {
 
         for line in 0..longest_column {
             for col in 0..cols.row.len() {
-                if line < 1 {
-                    print!("{0: <width$}", cols.row[col], width = self.col_widths[col]);
+                if line < col_text[col].len() {
+                    print!(
+                        "{0: <width$}",
+                        col_text[col][line],
+                        width = self.col_widths[col]
+                    );
                 } else {
                     print!("{0: <width$}", "", width = self.col_widths[col]);
                 }
