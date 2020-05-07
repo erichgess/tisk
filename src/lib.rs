@@ -115,11 +115,6 @@ impl Note {
             .expect("Could not get terminal details");
 
         let id_width: usize = 4;
-        let note_width: usize = if (cols as usize - (id_width + 1)) < 16 {
-            16
-        } else {
-            cols as usize - (id_width + 1)
-        }; // subtract id_width + 1 to account for a space between columns
 
         // Print the column headers
         let mut tf = TableFormatter::new(cols as usize);
