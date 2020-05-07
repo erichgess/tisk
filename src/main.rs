@@ -107,6 +107,8 @@ fn execute_command(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<Comm
         handle_close(tasks, close)
     } else if let Some(edit) = args.subcommand_matches("edit") {
         handle_edit(tasks, edit)
+    } else if let Some(note) = args.subcommand_matches("note") {
+        handle_note(tasks, note)
     } else {
         if let Some(list) = args.subcommand_matches("list") {
             handle_list(tasks, list)
@@ -163,13 +165,8 @@ fn configure_cli<'a, 'b>() -> App<'a, 'b> {
             App::new("note")
                 .about("Add a note to a specific task")
                 .arg(Arg::with_name("ID").index(1).required(true))
-                .arg(
-                    Arg::with_name("priority")
-                        .long("priority")
-                        .short("p")
-                        .takes_value(true)
-                        .help("Sets the priority for this task (0+)."),
-                ),
+                .arg(Arg::with_name("NOTE").index(2))
+                .arg(Arg::with_name("list").long("list").short("l")),
         )
         .subcommand(
             App::new("list")
@@ -251,6 +248,44 @@ fn handle_edit(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandE
                 Ok(CommandEffect::Write)
             }
         },
+    }
+}
+
+fn handle_note(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+    let id = match parse_integer_arg(args.value_of("ID")) {
+        Err(_) => {
+            return ferror!("Invalid ID provided, must be an integer greater than or equal to 0")
+        }
+        Ok(None) => return ferror!("No ID provided"),
+        Ok(Some(id)) => id,
+    };
+
+    if args.is_present("list") {
+        let notes = tasks
+            .get(id)
+            .ok_or(format!("Could not found task with ID {}", id))?
+            .notes();
+        for note in notes {
+            println!("{}", note.note());
+        }
+        Ok(CommandEffect::Read)
+    } else {
+        let note = match args.value_of("NOTE") {
+            None => {
+                return ferror!(
+                    "Invalid note provided, must be an integer greater than or equal to 0"
+                )
+            }
+            Some(note) => note,
+        };
+
+        match tasks.get_mut(id) {
+            Some(task) => {
+                task.add_note(note);
+                Ok(CommandEffect::Write)
+            }
+            None => ferror!("No task with id {} found.", id),
+        }
     }
 }
 

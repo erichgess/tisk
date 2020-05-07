@@ -98,6 +98,10 @@ impl Note {
             note: String::from(note),
         }
     }
+
+    pub fn note(&self) -> &str {
+        &self.note
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -153,11 +157,11 @@ impl Task {
         Ok(y)
     }
 
-    fn add_note(&mut self, note: &str) {
+    pub fn add_note(&mut self, note: &str) {
         self.notes.push(Note::new(note));
     }
 
-    fn get_notes(&self) -> &Vec<Note> {
+    pub fn notes(&self) -> &Vec<Note> {
         &self.notes
     }
 }
@@ -201,7 +205,7 @@ impl TaskList {
      *
      * If no task is found with the given ID then return `None`.
      */
-    fn get_mut(&mut self, id: u32) -> Option<&mut Task> {
+    pub fn get_mut(&mut self, id: u32) -> Option<&mut Task> {
         self.tasks.iter_mut().find(|t| t.id == id)
     }
 
@@ -242,6 +246,16 @@ impl TaskList {
                 task.priority = priority;
                 Some((old, task))
             }
+        }
+    }
+
+    pub fn add_note(&mut self, id: u32, note: &str) -> Option<&Task> {
+        match self.get_mut(id) {
+            Some(task) => {
+                task.add_note(note);
+                Some(task)
+            }
+            None => None,
         }
     }
 
@@ -675,12 +689,12 @@ mod tests {
         let task = mtasks.get_mut(t).expect("Task not created");
 
         task.add_note("Test Note");
-        let notes = task.get_notes();
+        let notes = task.notes();
         assert_eq!(1, notes.len());
         assert_eq!("Test Note", notes[0].note);
 
         task.add_note("Second Note");
-        let notes = task.get_notes();
+        let notes = task.notes();
         assert_eq!(2, notes.len());
         assert_eq!("Test Note", notes[0].note);
         assert_eq!("Second Note", notes[1].note);
