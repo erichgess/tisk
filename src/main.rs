@@ -40,14 +40,14 @@ fn main() {
 
     std::process::exit(match run(&args) {
         Ok(_) => 0,
-        Err(err) =>{
+        Err(err) => {
             println!("> {}", err);
             1
         }
     });
 }
 
-fn run(args: &ArgMatches) -> Result<(), String>{
+fn run(args: &ArgMatches) -> Result<(), String> {
     // TODO: I don't like how the if blocks break down into "init" in one very simple
     // block, then another big block that handles all other subcommands.  What I don't
     // like is that it's not obvious why that is (because init is a meta step which acts
@@ -76,7 +76,6 @@ fn run(args: &ArgMatches) -> Result<(), String>{
                         // 2. Does it make the code safer or more robust
                         // 3. What risks does this design bring
 
-                        
                         // Apply the given command to the in memory TaskList
                         let result = execute_command(&mut tasks, &args);
 
@@ -92,9 +91,9 @@ fn run(args: &ArgMatches) -> Result<(), String>{
                                 }
                             }
                         }
-                    },
+                    }
                 }
-            },
+            }
         }
     }
 }
@@ -127,7 +126,7 @@ fn find_task_dir() -> Result<std::path::PathBuf, String> {
     }
 }
 
-fn configure_cli<'a, 'b>() -> App<'a,'b> {
+fn configure_cli<'a, 'b>() -> App<'a, 'b> {
     App::new("Tisk")
         .version(option_env!("CARGO_PKG_VERSION").unwrap_or(""))
         .about("Task Management with scoping")
@@ -151,6 +150,18 @@ fn configure_cli<'a, 'b>() -> App<'a,'b> {
         .subcommand(
             App::new("edit")
                 .about("Change properties for an existing task")
+                .arg(Arg::with_name("ID").index(1).required(true))
+                .arg(
+                    Arg::with_name("priority")
+                        .long("priority")
+                        .short("p")
+                        .takes_value(true)
+                        .help("Sets the priority for this task (0+)."),
+                ),
+        )
+        .subcommand(
+            App::new("note")
+                .about("Add a note to a specific task")
                 .arg(Arg::with_name("ID").index(1).required(true))
                 .arg(
                     Arg::with_name("priority")
@@ -193,7 +204,9 @@ fn handle_add(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEf
 
 fn handle_close(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
     let id = match parse_integer_arg(args.value_of("ID")) {
-        Err(_) => return ferror!("Invalid ID provided, must be an integer greater than or equal to 0"),
+        Err(_) => {
+            return ferror!("Invalid ID provided, must be an integer greater than or equal to 0")
+        }
         Ok(None) => return ferror!("No ID provided"),
         Ok(Some(id)) => id,
     };
@@ -201,22 +214,26 @@ fn handle_close(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<Command
     debug!("Closing task with ID: {}", id);
     match tasks.close_task(id) {
         None => ferror!("Could not find task with ID {}", id),
-        Some(t) =>{
+        Some(t) => {
             println!("Task {} was closed", t.id());
             Ok(CommandEffect::Write)
-        },
+        }
     }
 }
 
 fn handle_edit(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
     let id = match parse_integer_arg(args.value_of("ID")) {
-        Err(_) => return ferror!("Invalid ID provided, must be an integer greater than or equal to 0"),
+        Err(_) => {
+            return ferror!("Invalid ID provided, must be an integer greater than or equal to 0")
+        }
         Ok(None) => return ferror!("No ID provided"),
         Ok(Some(id)) => id,
     };
 
     let priority = match parse_integer_arg(args.value_of("priority")) {
-        Err(_) => return ferror!("Invalid priority value: must be an integer greater than or equal to 0"),
+        Err(_) => {
+            return ferror!("Invalid priority value: must be an integer greater than or equal to 0")
+        }
         Ok(p) => p,
     };
 
@@ -225,9 +242,14 @@ fn handle_edit(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandE
         Some(p) => match tasks.set_priority(id, p) {
             None => ferror!("Could not find task with ID {}", id),
             Some((old, new)) => {
-                println!("Task {} priority set from {} to {}", id, old.priority(), new.priority());
+                println!(
+                    "Task {} priority set from {} to {}",
+                    id,
+                    old.priority(),
+                    new.priority()
+                );
                 Ok(CommandEffect::Write)
-            },
+            }
         },
     }
 }

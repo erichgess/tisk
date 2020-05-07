@@ -86,6 +86,21 @@ pub enum Status {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Note {
+    created_at: DateTime<Utc>,
+    note: String,
+}
+
+impl Note {
+    pub fn new(note: &str) -> Note {
+        Note {
+            created_at: Utc::now(),
+            note: String::from(note),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Task {
     id: u32,
     name: String,
@@ -96,6 +111,9 @@ pub struct Task {
 
     #[serde(default)]
     priority: u32,
+
+    #[serde(default)]
+    notes: Vec<Note>,
 }
 
 impl Task {
@@ -134,6 +152,14 @@ impl Task {
         let y = serde_yaml::from_str::<Task>(&s).unwrap(); // TODO: pass this result up to the caller
         Ok(y)
     }
+
+    fn add_note(&mut self, note: &str) {
+        self.notes.push(Note::new(note));
+    }
+
+    fn get_notes(&self) -> &Vec<Note> {
+        &self.notes
+    }
 }
 
 pub struct TaskList {
@@ -142,9 +168,7 @@ pub struct TaskList {
 
 impl TaskList {
     pub fn new() -> TaskList {
-        TaskList {
-            tasks: vec![],
-        }
+        TaskList { tasks: vec![] }
     }
     pub fn read_tasks(path: &std::path::PathBuf) -> std::io::Result<TaskList> {
         let paths = get_files(path)?;
@@ -153,9 +177,7 @@ impl TaskList {
             let task = Task::read(&p)?;
             tasks.push(task);
         }
-        Ok(TaskList {
-            tasks,
-        })
+        Ok(TaskList { tasks })
     }
 
     pub fn next_id(&self) -> u32 {
@@ -195,6 +217,7 @@ impl TaskList {
             status: Status::Open,
             created_at: Utc::now(),
             priority: priority,
+            notes: vec![],
         };
         self.tasks.push(t);
 
@@ -244,12 +267,13 @@ impl TaskList {
 
         let id_width: usize = 4;
         let date_width: usize = 10; // YYYY-mm-dd
-        let priority_width: usize =  3;
-        let name_width: usize = if (cols as usize - (id_width + 1 + date_width + 1 + priority_width + 1)) < 16 {
-            16
-        } else {
-            cols as usize - (id_width + 1) - (date_width + 1) - (priority_width + 1)
-        }; // subtract id_width + 1 to account for a space between columns
+        let priority_width: usize = 3;
+        let name_width: usize =
+            if (cols as usize - (id_width + 1 + date_width + 1 + priority_width + 1)) < 16 {
+                16
+            } else {
+                cols as usize - (id_width + 1) - (date_width + 1) - (priority_width + 1)
+            }; // subtract id_width + 1 to account for a space between columns
 
         // Print the column headers
         TaskList::print_header(id_width, date_width, priority_width, name_width);
@@ -276,31 +300,41 @@ impl TaskList {
         );
     }
 
-    fn print_task(task: &Task, id_width: usize, date_width: usize, priority_width: usize, name_width: usize) {
-            // Check the length of the name, if it is longer than `name_width` it will need to be
-            // printed on multiple lines
-            let lines = TaskList::format_to_column(&task.name, name_width, 7);
-            let mut first_line = true;
-            for line in lines {
-                if first_line {
-                    print!("{0: <id_width$} ", task.id, id_width = id_width);
-                    let date = task.created_at.format("%Y-%m-%d");
-                    print!("{0: <date_width$} ", date, date_width = date_width);
-                } else {
-                    print!("{0: <id_width$} ", "", id_width = id_width);
-                    print!("{0: <date_width$} ", "", date_width = date_width);
-                }
-
-                print!("{0: <name_width$} ", line, name_width = name_width);
-
-                if first_line {
-                    print!("{0: <priority_width$}", task.priority, priority_width = priority_width);
-                } else {
-                    print!("{0: <priority_width$}", "", priority_width = priority_width);
-                }
-                println!();
-                first_line = false;
+    fn print_task(
+        task: &Task,
+        id_width: usize,
+        date_width: usize,
+        priority_width: usize,
+        name_width: usize,
+    ) {
+        // Check the length of the name, if it is longer than `name_width` it will need to be
+        // printed on multiple lines
+        let lines = TaskList::format_to_column(&task.name, name_width, 7);
+        let mut first_line = true;
+        for line in lines {
+            if first_line {
+                print!("{0: <id_width$} ", task.id, id_width = id_width);
+                let date = task.created_at.format("%Y-%m-%d");
+                print!("{0: <date_width$} ", date, date_width = date_width);
+            } else {
+                print!("{0: <id_width$} ", "", id_width = id_width);
+                print!("{0: <date_width$} ", "", date_width = date_width);
             }
+
+            print!("{0: <name_width$} ", line, name_width = name_width);
+
+            if first_line {
+                print!(
+                    "{0: <priority_width$}",
+                    task.priority,
+                    priority_width = priority_width
+                );
+            } else {
+                print!("{0: <priority_width$}", "", priority_width = priority_width);
+            }
+            println!();
+            first_line = false;
+        }
     }
 
     pub fn get_all(&self) -> Vec<&Task> {
@@ -632,5 +666,23 @@ mod tests {
         assert_eq!(Status::Closed, filtered_tasks[0].status());
         assert_eq!("test 2", filtered_tasks[1].name());
         assert_eq!(Status::Open, filtered_tasks[1].status());
+    }
+
+    #[test]
+    fn task_notes() {
+        let mut mtasks = TaskList::new();
+        let t = mtasks.add_task("test", 1);
+        let task = mtasks.get_mut(t).expect("Task not created");
+
+        task.add_note("Test Note");
+        let notes = task.get_notes();
+        assert_eq!(1, notes.len());
+        assert_eq!("Test Note", notes[0].note);
+
+        task.add_note("Second Note");
+        let notes = task.get_notes();
+        assert_eq!(2, notes.len());
+        assert_eq!("Test Note", notes[0].note);
+        assert_eq!("Second Note", notes[1].note);
     }
 }
