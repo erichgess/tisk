@@ -18,6 +18,8 @@ extern crate tisk;
 enum CommandEffect {
     Write,
     Read,
+    CheckoutTask(u32),
+    CheckinTask,
 }
 
 macro_rules! ferror {
@@ -76,13 +78,24 @@ fn run(args: &ArgMatches) -> Result<(), String> {
                         // 2. Does it make the code safer or more robust
                         // 3. What risks does this design bring
 
+                        // load checked out task, if one is checked out
+                        let mut checked_out_task =
+                            read_checkout(&task_path).or_else(|err| ferror!("{}", err))?;
+                        println!("Checkout: {:?}", checked_out_task);
+
                         // Apply the given command to the in memory TaskList
-                        let result = execute_command(&mut tasks, &args);
+                        let result = execute_command(&mut tasks, &mut checked_out_task, &args);
 
                         // Determine if the TaskList needs to be written to disk
                         match result {
                             Err(e) => Err(e),
                             Ok(CommandEffect::Read) => Ok(()),
+                            Ok(CommandEffect::CheckoutTask(id)) => {
+                                write_checkout(id, &task_path).or_else(|err| ferror!("{}", err))
+                            }
+                            Ok(CommandEffect::CheckinTask) => {
+                                write_checkin(&task_path).or_else(|err| ferror!("{}", err))
+                            }
                             Ok(CommandEffect::Write) => {
                                 debug!("Writing tasks");
                                 match tasks.write_all(&task_path) {
@@ -100,7 +113,11 @@ fn run(args: &ArgMatches) -> Result<(), String> {
 
 // TODO: I kind of feel like passing this &mut TaskList into this function breaks the concept of
 // the owner determining who can modify an entity
-fn execute_command(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+fn execute_command(
+    tasks: &mut tisk::TaskList,
+    checked_out_task: &Option<u32>,
+    args: &ArgMatches,
+) -> Result<CommandEffect, String> {
     if let Some(add) = args.subcommand_matches("add") {
         handle_add(tasks, add)
     } else if let Some(close) = args.subcommand_matches("close") {
@@ -109,6 +126,10 @@ fn execute_command(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<Comm
         handle_edit(tasks, edit)
     } else if let Some(note) = args.subcommand_matches("note") {
         handle_note(tasks, note)
+    } else if let Some(checkout) = args.subcommand_matches("checkout") {
+        handle_checkout(tasks, checkout)
+    } else if let Some(_) = args.subcommand_matches("checkin") {
+        handle_checkin()
     } else {
         if let Some(list) = args.subcommand_matches("list") {
             handle_list(tasks, list)
@@ -148,6 +169,15 @@ fn configure_cli<'a, 'b>() -> App<'a, 'b> {
             App::new("close")
                 .about("Close a given task")
                 .arg(Arg::with_name("ID").index(1)),
+        )
+        .subcommand(
+            App::new("checkout")
+                .about("Checkout a task.  This will cause task specific actions to apply to the checked out task if an ID is not provided.")
+                .arg(Arg::with_name("ID").index(1).required(true))
+        )
+        .subcommand(
+            App::new("checkin")
+                .about("Releases the currently checked out task. No task will be checked out afterwards.")
         )
         .subcommand(
             App::new("edit")
@@ -216,6 +246,29 @@ fn handle_close(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<Command
             Ok(CommandEffect::Write)
         }
     }
+}
+
+fn handle_checkout(tasks: &tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+    let id = match parse_integer_arg(args.value_of("ID")) {
+        Err(_) => {
+            return ferror!("Invalid ID provided, must be an integer greater than or equal to 0")
+        }
+        Ok(None) => return ferror!("No ID provided"),
+        Ok(Some(id)) => id,
+    };
+    match tasks.get(id) {
+        None => ferror!("Could not find task with ID {}", id),
+        Some(_) => {
+            debug!("Checkout task {}", id);
+            println!("Checkout task {}", id);
+            Ok(CommandEffect::CheckoutTask(id))
+        }
+    }
+}
+
+fn handle_checkin() -> Result<CommandEffect, String> {
+    // Generate a signal to delete the checkout file
+    Ok(CommandEffect::CheckinTask)
 }
 
 fn handle_edit(tasks: &mut tisk::TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
@@ -308,6 +361,50 @@ fn handle_list(tasks: &tisk::TaskList, args: &ArgMatches) -> Result<CommandEffec
         tisk::TaskList::print(task_slice);
     }
     Ok(CommandEffect::Read)
+}
+
+fn write_checkout(id: u32, path: &std::path::PathBuf) -> std::io::Result<()> {
+    use std::io::prelude::*;
+
+    let mut path = std::path::PathBuf::from(path);
+    path.push(".checkout");
+    let mut file = std::fs::File::create(path)?;
+
+    let s = format!("{}", id);
+
+    file.write_all(s.as_bytes())
+}
+
+fn read_checkout(path: &std::path::PathBuf) -> std::io::Result<Option<u32>> {
+    use std::io::prelude::*;
+    let mut path = std::path::PathBuf::from(path);
+    path.push(".checkout");
+    let mut file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(err @ std::io::Error { .. }) if err.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(None)
+        }
+        Err(err) => return Err(err),
+    };
+
+    let mut s = String::new();
+    file.read_to_string(&mut s)?;
+    s.parse::<u32>()
+        .map(|id| Some(id))
+        .or_else(|e| Err(std::io::Error::new(std::io::ErrorKind::InvalidData, e)))
+}
+
+fn write_checkin(path: &std::path::PathBuf) -> std::io::Result<()> {
+    let mut path = std::path::PathBuf::from(path);
+    path.push(".checkout");
+
+    match std::fs::remove_file(path) {
+        Ok(_) => Ok(()),
+        Err(err @ std::io::Error { .. }) if err.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(())
+        }
+        Err(err) => return Err(err),
+    }
 }
 
 fn parse_integer_arg(arg: Option<&str>) -> Result<Option<u32>, std::num::ParseIntError> {
