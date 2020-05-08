@@ -105,24 +105,15 @@ fn execute_command(
     checked_out_task: Option<u32>,
     args: &ArgMatches,
 ) -> Result<CommandEffect, String> {
-    if let Some(add) = args.subcommand_matches("add") {
-        handle_add(tasks, add)
-    } else if let Some(close) = args.subcommand_matches("close") {
-        handle_close(tasks, close)
-    } else if let Some(edit) = args.subcommand_matches("edit") {
-        handle_edit(tasks, edit)
-    } else if let Some(note) = args.subcommand_matches("note") {
-        handle_note(tasks, checked_out_task, note)
-    } else if let Some(checkout) = args.subcommand_matches("checkout") {
-        handle_checkout(tasks, checkout)
-    } else if let Some(_) = args.subcommand_matches("checkin") {
-        handle_checkin()
-    } else {
-        if let Some(list) = args.subcommand_matches("list") {
-            handle_list(tasks, list)
-        } else {
-            handle_list(tasks, &ArgMatches::new())
-        }
+    match args.subcommand() {
+        ("add", Some(args)) => handle_add(tasks, args),
+        ("close", Some(args)) => handle_close(tasks, args),
+        ("edit", Some(args)) => handle_edit(tasks, args),
+        ("note", Some(args)) => handle_note(tasks, checked_out_task, args),
+        ("checkout", Some(args)) => handle_checkout(tasks, args),
+        ("checkin", Some(_)) => handle_checkin(),
+        ("list", Some(args)) => handle_list(tasks, args),
+        _ => handle_list(tasks, &ArgMatches::new()),
     }
 }
 
