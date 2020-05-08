@@ -2,6 +2,9 @@ mod io;
 mod table;
 mod tasks;
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use clap::{App, Arg, ArgMatches};
 use log::{debug, LevelFilter};
 use log4rs;
@@ -34,7 +37,7 @@ enum Chain<'a> {
     Effect(CommandEffect),
     EffectAndThen(
         CommandEffect,
-        Box<dyn Fn(&TaskList) -> Result<Chain<'a>, String> + 'a>,
+        Box<dyn Fn(Rc<RefCell<&mut TaskList>>) -> Result<Chain<'a>, String> + 'a>,
     ),
 }
 
@@ -84,14 +87,15 @@ fn run(args: &ArgMatches) -> Result<(), String> {
                         //    chaining where you have an effect and then something that is executed
                         //    if the effect is successfully resolved (e.g. `(Effect::Write,
                         //    and_then: () -> Effect)`
+                        let tasks = Rc::new(RefCell::new(&mut tasks));
 
                         // load checked out task, if one is checked out
                         let checked_out_task =
                             io::read_checkout(&task_path).or_else(|err| ferror!("{}", err))?;
 
                         // Apply the given command to the in memory TaskList
-                        let effects = execute_command(&mut tasks, checked_out_task, &args)?;
-                        apply_chain(effects, &tasks, &task_path)
+                        let effects = execute_command(Rc::clone(&tasks), checked_out_task, &args)?;
+                        apply_chain(effects, Rc::clone(&tasks), &task_path)
                     }
                 }
             }
@@ -99,21 +103,19 @@ fn run(args: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn apply_chain(chain: Chain, tasks: &TaskList, task_path: &std::path::PathBuf) -> Result<(), String> {
+fn apply_chain(
+    chain: Chain,
+    tasks: Rc<RefCell<&mut TaskList>>,
+    task_path: &std::path::PathBuf,
+) -> Result<(), String> {
     match chain {
-        Chain::Effect(e) => apply_effect(e, task_path, tasks),
-        Chain::EffectAndThen(e, f) => {
-            match apply_effect(e, task_path, tasks) {
+        Chain::Effect(e) => apply_effect(e, task_path, Rc::clone(&tasks)),
+        Chain::EffectAndThen(e, f) => match apply_effect(e, task_path, Rc::clone(&tasks)) {
+            Err(why) => Err(why),
+            Ok(()) => match f(Rc::clone(&tasks)) {
                 Err(why) => Err(why),
-                Ok(()) => {
-                    match f(tasks) {
-                        Err(why) => Err(why),
-                        Ok(chain) => {
-                            apply_chain(chain, tasks, task_path)
-                        }
-                    }
-                }
-            }
+                Ok(chain) => apply_chain(chain, tasks, task_path),
+            },
         },
     }
 }
@@ -121,13 +123,14 @@ fn apply_chain(chain: Chain, tasks: &TaskList, task_path: &std::path::PathBuf) -
 fn apply_effect(
     effect: CommandEffect,
     task_path: &std::path::PathBuf,
-    tasks: &TaskList,
+    tasks: Rc<RefCell<&mut TaskList>>,
 ) -> Result<(), String> {
     match effect {
         CommandEffect::Read => Ok(()),
         CommandEffect::Write => {
             debug!("Writing tasks");
             tasks
+                .borrow()
                 .write_all(&task_path)
                 .or_else(|err| ferror!("{}", err))
         }
@@ -145,7 +148,7 @@ fn apply_effect(
 // TODO: I kind of feel like passing this &mut TaskList into this function breaks the concept of
 // the owner determining who can modify an entity
 fn execute_command<'a>(
-    tasks: &'a mut TaskList,
+    tasks: Rc<RefCell<&mut TaskList>>,
     checked_out_task: Option<u32>,
     args: &'a ArgMatches,
 ) -> Result<Chain<'a>, String> {
@@ -255,19 +258,19 @@ fn configure_cli<'a, 'b>() -> App<'a, 'b> {
         .subcommand(App::new("init").about("Intialize a new tisk project based in this directory"))
 }
 
-fn handle_add(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, String> {
+fn handle_add(tasks: Rc<RefCell<&mut TaskList>>, args: &ArgMatches) -> Result<Effects, String> {
     let name = args.value_of("input").unwrap();
     let priority: u32 = args.value_of("priority").unwrap_or("1").parse().unwrap();
 
     debug!("Adding new task to task list");
-    let id = tasks.add_task(name, priority);
+    let id = tasks.borrow_mut().add_task(name, priority);
 
     let note = args.value_of("note");
-    note.and_then(|n| tasks.get_mut(id).map(|t| t.add_note(n)));
+    note.and_then(|n| tasks.borrow_mut().get_mut(id).map(|t| t.add_note(n)));
     Ok(vec![CommandEffect::Write])
 }
 
-fn handle_close(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, String> {
+fn handle_close(tasks: Rc<RefCell<&mut TaskList>>, args: &ArgMatches) -> Result<Effects, String> {
     let id = match parse_integer_arg(args.value_of("ID")) {
         Err(_) => {
             return ferror!("Invalid ID provided, must be an integer greater than or equal to 0")
@@ -278,10 +281,14 @@ fn handle_close(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, Stri
 
     debug!("Closing task with ID: {}", id);
     match args.value_of("note") {
-        Some(note) => tasks.get_mut(id).iter_mut().for_each(|t| t.add_note(note)),
+        Some(note) => tasks
+            .borrow_mut()
+            .get_mut(id)
+            .iter_mut()
+            .for_each(|t| t.add_note(note)),
         None => (),
     }
-    match tasks.close_task(id) {
+    match tasks.borrow_mut().close_task(id) {
         None => ferror!("Could not find task with ID {}", id),
         Some(t) => {
             println!("Task {} was closed", t.id());
@@ -290,7 +297,10 @@ fn handle_close(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, Stri
     }
 }
 
-fn chain_checkout<'a>(tasks: &mut TaskList, args: &ArgMatches) -> Result<Chain<'a>, String> {
+fn chain_checkout<'a>(
+    tasks: Rc<RefCell<&mut TaskList>>,
+    args: &ArgMatches,
+) -> Result<Chain<'a>, String> {
     let mut effects = vec![];
     if args.is_present("ID") && args.is_present("add") {
         return ferror!("Cannot have an ID and the --add flag set at the same time");
@@ -301,10 +311,10 @@ fn chain_checkout<'a>(tasks: &mut TaskList, args: &ArgMatches) -> Result<Chain<'
     let id = match args.value_of("add") {
         Some(task) => {
             effects.push(CommandEffect::Write);
-            let id = tasks.add_task(task, 1);
+            let id = tasks.borrow_mut().add_task(task, 1);
             return Ok(Chain::EffectAndThen(
                 CommandEffect::Write,
-                Box::new(move |tasks| match tasks.get(id) {
+                Box::new(move |tasks| match tasks.borrow().get(id) {
                     None => ferror!("Could not find task with ID {}", id),
                     Some(_) => {
                         debug!("Checkout task {}", id);
@@ -325,7 +335,7 @@ fn chain_checkout<'a>(tasks: &mut TaskList, args: &ArgMatches) -> Result<Chain<'
         },
     };
 
-    match tasks.get(id) {
+    match tasks.borrow().get(id) {
         None => ferror!("Could not find task with ID {}", id),
         Some(_) => {
             debug!("Checkout task {}", id);
@@ -375,7 +385,7 @@ fn handle_checkin() -> Result<Effects, String> {
     Ok(vec![CommandEffect::CheckinTask])
 }
 
-fn handle_edit(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, String> {
+fn handle_edit(tasks: Rc<RefCell<&mut TaskList>>, args: &ArgMatches) -> Result<Effects, String> {
     let id = match parse_integer_arg(args.value_of("ID")) {
         Err(_) => {
             return ferror!("Invalid ID provided, must be an integer greater than or equal to 0")
@@ -393,7 +403,7 @@ fn handle_edit(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, Strin
 
     match priority {
         None => Ok(vec![CommandEffect::Read]),
-        Some(p) => match tasks.set_priority(id, p) {
+        Some(p) => match tasks.borrow_mut().set_priority(id, p) {
             None => ferror!("Could not find task with ID {}", id),
             Some((old, new)) => {
                 println!(
@@ -409,7 +419,7 @@ fn handle_edit(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, Strin
 }
 
 fn handle_note(
-    tasks: &mut TaskList,
+    tasks: Rc<RefCell<&mut TaskList>>,
     checked_out_task: Option<u32>,
     args: &ArgMatches,
 ) -> Result<Effects, String> {
@@ -425,6 +435,7 @@ fn handle_note(
     };
 
     if args.is_present("list") || !args.is_present("NOTE") {
+        let tasks = tasks.borrow();
         let notes = tasks
             .get(id)
             .ok_or(format!("Could not found task with ID {}", id))?
@@ -442,7 +453,7 @@ fn handle_note(
             Some(note) => note,
         };
 
-        match tasks.get_mut(id) {
+        match tasks.borrow_mut().get_mut(id) {
             Some(task) => {
                 task.add_note(note);
                 Ok(vec![CommandEffect::Write])
@@ -452,7 +463,8 @@ fn handle_note(
     }
 }
 
-fn handle_list(tasks: &TaskList, args: &ArgMatches) -> Result<Effects, String> {
+fn handle_list(tasks: Rc<RefCell<&mut TaskList>>, args: &ArgMatches) -> Result<Effects, String> {
+    let tasks = tasks.borrow();
     if args.is_present("all") {
         let mut task_slice = tasks.get_all();
         task_slice.sort_by(|a, b| order_tasks(&b, &a));
