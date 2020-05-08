@@ -443,6 +443,7 @@ pub fn print_task_list(tasks: Vec<&tasks::Task>) {
     let id_width: usize = 4;
     let date_width: usize = 10; // YYYY-mm-dd
     let priority_width: usize = 3;
+    let notes_width = 3;
 
     let mut tf = TableFormatter::new(cols as usize);
     tf.set_columns(vec![
@@ -450,6 +451,7 @@ pub fn print_task_list(tasks: Vec<&tasks::Task>) {
         ("Date", Some(date_width)),
         ("Name", None),
         ("Pri", Some(priority_width)),
+        ("Nts", Some(notes_width)),
     ]);
 
     // Print the table
@@ -460,6 +462,7 @@ pub fn print_task_list(tasks: Vec<&tasks::Task>) {
         row.push(task.created_at().format("%Y-%m-%d"));
         row.push(task.name());
         row.push(task.priority());
+        row.push(task.notes().len());
         tf.print_row(row);
     }
 }
