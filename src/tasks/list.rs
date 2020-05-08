@@ -75,12 +75,10 @@ impl TaskList {
     }
 
     pub fn write_all(&self, task_path: &std::path::PathBuf) -> std::io::Result<()> {
-        let mut count = 0;
-        for task in self.tasks.iter() {
-            Task::write(task, &task_path)?;
-            count += 1;
-        }
-        Ok(())
+        self.tasks
+            .iter()
+            .map(|task| Task::write(&task, &task_path))
+            .collect()
     }
 
     pub fn get_all(&self) -> Vec<&Task> {
