@@ -64,14 +64,12 @@ impl TaskList {
     }
 
     pub fn set_priority(&mut self, id: u32, priority: u32) -> Option<(Task, &Task)> {
-        match self.get_mut(id) {
-            None => None,
-            Some(task) => {
+        self.get_mut(id)
+            .map(move |task|{
                 let old = task.clone();
                 task.set_priority(priority);
-                Some((old, task))
-            }
-        }
+                (old, task as &Task)
+            })
     }
 
     pub fn write_all(&self, task_path: &std::path::PathBuf) -> std::io::Result<()> {
