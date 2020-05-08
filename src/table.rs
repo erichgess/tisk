@@ -1,71 +1,4 @@
-use super::tasks::{Note, Task};
-
-pub fn task_list(tasks: Vec<&Task>) {
-    use console::Term;
-
-    // Get terminal dimensions so that we can compute how wide columns can be and
-    // how to format text properly
-    // Assume that we'll always have at least 20 columns in the terminal (as even that small
-    // would be unuseable for a person.
-    let (_, cols) = Term::stdout()
-        .size_checked()
-        .expect("Could not get terminal details");
-
-    let id_width: usize = 4;
-    let date_width: usize = 10; // YYYY-mm-dd
-    let priority_width: usize = 3;
-
-    let mut tf = TableFormatter::new(cols as usize);
-    tf.set_columns(vec![
-        ("ID", Some(id_width)),
-        ("Date", Some(date_width)),
-        ("Name", None),
-        ("Pri", Some(priority_width)),
-    ]);
-
-    // Print the table
-    tf.print_header();
-    for task in tasks.iter() {
-        let mut row = TableRow::new();
-        row.push(task.id());
-        row.push(task.created_at().format("%Y-%m-%d"));
-        row.push(task.name());
-        row.push(task.priority());
-        tf.print_row(row);
-    }
-}
-
-pub fn notes(notes: Vec<&Note>) {
-    use console::Term;
-
-    // Get terminal dimensions so that we can compute how wide columns can be and
-    // how to format text properly
-    // Assume that we'll always have at least 20 columns in the terminal (as even that small
-    // would be unuseable for a person.
-    let (_, cols) = Term::stdout()
-        .size_checked()
-        .expect("Could not get terminal details");
-
-    let id_width: usize = 4;
-
-    // Print the column headers
-    let mut tf = TableFormatter::new(cols as usize);
-    tf.set_columns(vec![("ID", Some(id_width)), ("Note", None)]);
-    tf.print_header();
-
-    // print each task, in the order given by the input vector
-    let mut idx = 1;
-    for note in notes.iter() {
-        //Note::print_note(task, idx, id_width, note_width);
-        let mut row = TableRow::new();
-        row.push(idx);
-        row.push(note.note());
-        tf.print_row(row);
-        idx += 1;
-    }
-}
-
-struct TableRow<'a> {
+pub struct TableRow<'a> {
     row: Vec<Box<dyn std::fmt::Display + 'a>>,
 }
 
@@ -79,7 +12,7 @@ impl<'a> TableRow<'a> {
     }
 }
 
-struct TableFormatter {
+pub struct TableFormatter {
     width: usize, // the width, in characters, of the table
     col_widths: Vec<usize>,
     cols: Vec<String>,
