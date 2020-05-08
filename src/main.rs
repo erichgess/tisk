@@ -20,6 +20,7 @@ use tasks::{Task, TaskList};
  * `Write` means that the command modified the TaskList or a Task in the
  * TaskList and the changes will need to be written to disk.
  */
+#[derive(Copy, Clone)]
 enum CommandEffect {
     Write,
     Read,
@@ -28,6 +29,14 @@ enum CommandEffect {
 }
 
 type Effects = Vec<CommandEffect>;
+
+enum Chain<'a> {
+    Effect(CommandEffect),
+    EffectAndThen(
+        CommandEffect,
+        Box<dyn Fn(&TaskList) -> Result<Chain<'a>, String> + 'a>,
+    ),
+}
 
 fn main() {
     configure_logger();
@@ -82,27 +91,7 @@ fn run(args: &ArgMatches) -> Result<(), String> {
 
                         // Apply the given command to the in memory TaskList
                         let effects = execute_command(&mut tasks, checked_out_task, &args)?;
-                        effects
-                            .into_iter()
-                            .map(|effect| match effect {
-                                CommandEffect::Read => Ok(()),
-                                CommandEffect::Write => {
-                                    debug!("Writing tasks");
-                                    tasks
-                                        .write_all(&task_path)
-                                        .or_else(|err| ferror!("{}", err))
-                                }
-                                CommandEffect::CheckoutTask(id) => {
-                                    debug!("Checkout task {}", id);
-                                    io::write_checkout(id, &task_path)
-                                        .or_else(|err| ferror!("{}", err))
-                                }
-                                CommandEffect::CheckinTask => {
-                                    debug!("Checkin task");
-                                    io::write_checkin(&task_path).or_else(|err| ferror!("{}", err))
-                                }
-                            })
-                            .collect()
+                        apply_chain(effects, &tasks, &task_path)
                     }
                 }
             }
@@ -110,22 +99,67 @@ fn run(args: &ArgMatches) -> Result<(), String> {
     }
 }
 
+fn apply_chain(chain: Chain, tasks: &TaskList, task_path: &std::path::PathBuf) -> Result<(), String> {
+    match chain {
+        Chain::Effect(e) => apply_effect(e, task_path, tasks),
+        Chain::EffectAndThen(e, f) => {
+            match apply_effect(e, task_path, tasks) {
+                Err(why) => Err(why),
+                Ok(()) => {
+                    match f(tasks) {
+                        Err(why) => Err(why),
+                        Ok(chain) => {
+                            apply_chain(chain, tasks, task_path)
+                        }
+                    }
+                }
+            }
+        },
+    }
+}
+
+fn apply_effect(
+    effect: CommandEffect,
+    task_path: &std::path::PathBuf,
+    tasks: &TaskList,
+) -> Result<(), String> {
+    match effect {
+        CommandEffect::Read => Ok(()),
+        CommandEffect::Write => {
+            debug!("Writing tasks");
+            tasks
+                .write_all(&task_path)
+                .or_else(|err| ferror!("{}", err))
+        }
+        CommandEffect::CheckoutTask(id) => {
+            debug!("Checkout task {}", id);
+            io::write_checkout(id, &task_path).or_else(|err| ferror!("{}", err))
+        }
+        CommandEffect::CheckinTask => {
+            debug!("Checkin task");
+            io::write_checkin(&task_path).or_else(|err| ferror!("{}", err))
+        }
+    }
+}
+
 // TODO: I kind of feel like passing this &mut TaskList into this function breaks the concept of
 // the owner determining who can modify an entity
-fn execute_command(
-    tasks: &mut TaskList,
+fn execute_command<'a>(
+    tasks: &'a mut TaskList,
     checked_out_task: Option<u32>,
-    args: &ArgMatches,
-) -> Result<Effects, String> {
+    args: &'a ArgMatches,
+) -> Result<Chain<'a>, String> {
     match args.subcommand() {
-        ("add", Some(args)) => handle_add(tasks, args),
-        ("close", Some(args)) => handle_close(tasks, args),
-        ("edit", Some(args)) => handle_edit(tasks, args),
-        ("note", Some(args)) => handle_note(tasks, checked_out_task, args),
-        ("checkout", Some(args)) => handle_checkout(tasks, args),
-        ("checkin", Some(_)) => handle_checkin(),
-        ("list", Some(args)) => handle_list(tasks, args),
-        _ => handle_list(tasks, &ArgMatches::new()),
+        ("add", Some(args)) => handle_add(tasks, args).map(|e| Chain::Effect(e[0])),
+        ("close", Some(args)) => handle_close(tasks, args).map(|e| Chain::Effect(e[0])),
+        ("edit", Some(args)) => handle_edit(tasks, args).map(|e| Chain::Effect(e[0])),
+        ("note", Some(args)) => {
+            handle_note(tasks, checked_out_task, args).map(|e| Chain::Effect(e[0]))
+        }
+        ("checkout", Some(args)) => chain_checkout(tasks, args),
+        ("checkin", Some(_)) => handle_checkin().map(|e| Chain::Effect(e[0])),
+        ("list", Some(args)) => handle_list(tasks, args).map(|e| Chain::Effect(e[0])),
+        _ => handle_list(tasks, &ArgMatches::new()).map(|e| Chain::Effect(e[0])),
     }
 }
 
@@ -252,6 +286,51 @@ fn handle_close(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, Stri
         Some(t) => {
             println!("Task {} was closed", t.id());
             Ok(vec![CommandEffect::Write])
+        }
+    }
+}
+
+fn chain_checkout<'a>(tasks: &mut TaskList, args: &ArgMatches) -> Result<Chain<'a>, String> {
+    let mut effects = vec![];
+    if args.is_present("ID") && args.is_present("add") {
+        return ferror!("Cannot have an ID and the --add flag set at the same time");
+    } else if !args.is_present("ID") && !args.is_present("add") {
+        return ferror!("Must specify either an ID to checkout or `--add` to add a new task");
+    }
+
+    let id = match args.value_of("add") {
+        Some(task) => {
+            effects.push(CommandEffect::Write);
+            let id = tasks.add_task(task, 1);
+            return Ok(Chain::EffectAndThen(
+                CommandEffect::Write,
+                Box::new(move |tasks| match tasks.get(id) {
+                    None => ferror!("Could not find task with ID {}", id),
+                    Some(_) => {
+                        debug!("Checkout task {}", id);
+                        println!("Checkout task {}", id);
+                        Ok(Chain::Effect(CommandEffect::CheckoutTask(id)))
+                    }
+                }),
+            ));
+        }
+        None => match parse_integer_arg(args.value_of("ID")) {
+            Err(_) => {
+                return ferror!(
+                    "Invalid ID provided, must be an integer greater than or equal to 0"
+                )
+            }
+            Ok(None) => return ferror!("No ID provided"),
+            Ok(Some(id)) => id,
+        },
+    };
+
+    match tasks.get(id) {
+        None => ferror!("Could not find task with ID {}", id),
+        Some(_) => {
+            debug!("Checkout task {}", id);
+            println!("Checkout task {}", id);
+            Ok(Chain::Effect(CommandEffect::CheckoutTask(id)))
         }
     }
 }
