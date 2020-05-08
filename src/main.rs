@@ -64,44 +64,45 @@ fn run(args: &ArgMatches) -> Result<(), String> {
                         // was that doing this decoupling would make it harder to fail to write
                         // changed data to disk.
                         //
-                        // 1. Does it make it easer to reason about the code
+                        // 1. Does it make it easer to reason about the code.  What this design
+                        //    does  do is explicitly show the user what effects they can have.
                         // 2. Does it make the code safer or more robust
-                        // 3. What risks does this design bring
+                        // 3. What risks does this design bring: the changes you make and their
+                        //    being committed are decoupled and far away, so it is hard to reason
+                        //    about them.
+                        //    - Having multiple effects which you want to make dependent would not
+                        //    work in the present design; what could be done is some kind of
+                        //    chaining where you have an effect and then something that is executed
+                        //    if the effect is successfully resolved (e.g. `(Effect::Write,
+                        //    and_then: () -> Effect)`
 
                         // load checked out task, if one is checked out
                         let checked_out_task =
                             io::read_checkout(&task_path).or_else(|err| ferror!("{}", err))?;
 
                         // Apply the given command to the in memory TaskList
-                        let result = execute_command(&mut tasks, checked_out_task, &args);
-
-                        // Determine if the TaskList needs to be written to disk
-                        match result {
-                            Err(e) => Err(e),
-                            Ok(effects) => {
-                                for effect in effects {
-                                    match effect {
-                                        CommandEffect::Read => (),
-                                        CommandEffect::CheckoutTask(id) => {
-                                            io::write_checkout(id, &task_path)
-                                                .or_else(|err| ferror!("{}", err))?;
-                                        }
-                                        CommandEffect::CheckinTask => {
-                                            io::write_checkin(&task_path)
-                                                .or_else(|err| ferror!("{}", err))?;
-                                        }
-                                        CommandEffect::Write => {
-                                            debug!("Writing tasks");
-                                            match tasks.write_all(&task_path) {
-                                                Ok(_) => (),
-                                                Err(why) => return ferror!("{}", why),
-                                            }
-                                        }
-                                    }
+                        let effects = execute_command(&mut tasks, checked_out_task, &args)?;
+                        effects
+                            .into_iter()
+                            .map(|effect| match effect {
+                                CommandEffect::Read => Ok(()),
+                                CommandEffect::Write => {
+                                    debug!("Writing tasks");
+                                    tasks
+                                        .write_all(&task_path)
+                                        .or_else(|err| ferror!("{}", err))
                                 }
-                                Ok(())
-                            }
-                        }
+                                CommandEffect::CheckoutTask(id) => {
+                                    debug!("Checkout task {}", id);
+                                    io::write_checkout(id, &task_path)
+                                        .or_else(|err| ferror!("{}", err))
+                                }
+                                CommandEffect::CheckinTask => {
+                                    debug!("Checkin task");
+                                    io::write_checkin(&task_path).or_else(|err| ferror!("{}", err))
+                                }
+                            })
+                            .collect()
                     }
                 }
             }
@@ -265,9 +266,9 @@ fn handle_checkout(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, S
 
     let id = match args.value_of("add") {
         Some(task) => {
-                effects.push(CommandEffect::Write);
-                tasks.add_task(task, 1)
-            },
+            effects.push(CommandEffect::Write);
+            tasks.add_task(task, 1)
+        }
         None => match parse_integer_arg(args.value_of("ID")) {
             Err(_) => {
                 return ferror!(
