@@ -140,12 +140,26 @@ fn configure_cli<'a, 'b>() -> App<'a, 'b> {
                         .short("p")
                         .takes_value(true)
                         .help("Sets the priority for this task (0+)."),
+                )
+                .arg(
+                    Arg::with_name("note")
+                        .long("note")
+                        .short("n")
+                        .takes_value(true)
+                        .help("Adds a note to the newly created task."),
                 ),
         )
         .subcommand(
             App::new("close")
                 .about("Close a given task")
-                .arg(Arg::with_name("ID").index(1)),
+                .arg(Arg::with_name("ID").index(1))
+                .arg(
+                    Arg::with_name("note")
+                        .long("note")
+                        .short("n")
+                        .takes_value(true)
+                        .help("Adds a note to the newly created task."),
+                ),
         )
         .subcommand(
             App::new("checkout")
@@ -202,7 +216,10 @@ fn handle_add(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect, 
     let priority: u32 = args.value_of("priority").unwrap_or("1").parse().unwrap();
 
     debug!("Adding new task to task list");
-    tasks.add_task(name, priority);
+    let id = tasks.add_task(name, priority);
+
+    let note = args.value_of("note");
+    note.and_then(|n| tasks.get_mut(id).map(|t| t.add_note(n)));
     Ok(CommandEffect::Write)
 }
 
@@ -216,6 +233,10 @@ fn handle_close(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect
     };
 
     debug!("Closing task with ID: {}", id);
+    match args.value_of("note") {
+        Some(note) => tasks.get_mut(id).iter_mut().for_each(|t| t.add_note(note)),
+        None => (),
+    }
     match tasks.close_task(id) {
         None => ferror!("Could not find task with ID {}", id),
         Some(t) => {
