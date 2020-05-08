@@ -159,7 +159,7 @@ fn execute_command<'a>(
         ("note", Some(args)) => {
             handle_note(tasks, checked_out_task, args).map(|e| Chain::Effect(e[0]))
         }
-        ("checkout", Some(args)) => chain_checkout(tasks, args),
+        ("checkout", Some(args)) => handle_checkout(tasks, args),
         ("checkin", Some(_)) => handle_checkin().map(|e| Chain::Effect(e[0])),
         ("list", Some(args)) => handle_list(tasks, args).map(|e| Chain::Effect(e[0])),
         _ => handle_list(tasks, &ArgMatches::new()).map(|e| Chain::Effect(e[0])),
@@ -297,7 +297,7 @@ fn handle_close(tasks: Rc<RefCell<&mut TaskList>>, args: &ArgMatches) -> Result<
     }
 }
 
-fn chain_checkout<'a>(
+fn handle_checkout<'a>(
     tasks: Rc<RefCell<&mut TaskList>>,
     args: &ArgMatches,
 ) -> Result<Chain<'a>, String> {
@@ -341,41 +341,6 @@ fn chain_checkout<'a>(
             debug!("Checkout task {}", id);
             println!("Checkout task {}", id);
             Ok(Chain::Effect(CommandEffect::CheckoutTask(id)))
-        }
-    }
-}
-
-fn handle_checkout(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, String> {
-    let mut effects = vec![];
-    if args.is_present("ID") && args.is_present("add") {
-        return ferror!("Cannot have an ID and the --add flag set at the same time");
-    } else if !args.is_present("ID") && !args.is_present("add") {
-        return ferror!("Must specify either an ID to checkout or `--add` to add a new task");
-    }
-
-    let id = match args.value_of("add") {
-        Some(task) => {
-            effects.push(CommandEffect::Write);
-            tasks.add_task(task, 1)
-        }
-        None => match parse_integer_arg(args.value_of("ID")) {
-            Err(_) => {
-                return ferror!(
-                    "Invalid ID provided, must be an integer greater than or equal to 0"
-                )
-            }
-            Ok(None) => return ferror!("No ID provided"),
-            Ok(Some(id)) => id,
-        },
-    };
-
-    match tasks.get(id) {
-        None => ferror!("Could not find task with ID {}", id),
-        Some(_) => {
-            debug!("Checkout task {}", id);
-            println!("Checkout task {}", id);
-            effects.push(CommandEffect::CheckoutTask(id));
-            Ok(effects)
         }
     }
 }
