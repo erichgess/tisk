@@ -54,22 +54,18 @@ impl TaskList {
     }
 
     pub fn close_task(&mut self, id: u32) -> Option<&Task> {
-        match self.get_mut(id) {
-            None => None,
-            Some(task) => {
-                task.set_status(Status::Closed);
-                Some(task)
-            }
-        }
+        self.get_mut(id).map(|task| {
+            task.set_status(Status::Closed);
+            task as &Task
+        })
     }
 
     pub fn set_priority(&mut self, id: u32, priority: u32) -> Option<(Task, &Task)> {
-        self.get_mut(id)
-            .map(move |task|{
-                let old = task.clone();
-                task.set_priority(priority);
-                (old, task as &Task)
-            })
+        self.get_mut(id).map(|task| {
+            let old = task.clone();
+            task.set_priority(priority);
+            (old, task as &Task)
+        })
     }
 
     pub fn write_all(&self, task_path: &std::path::PathBuf) -> std::io::Result<()> {
