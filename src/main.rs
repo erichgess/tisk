@@ -155,7 +155,14 @@ fn configure_cli<'a, 'b>() -> App<'a, 'b> {
         .subcommand(
             App::new("checkout")
                 .about("Checkout a task.  This will cause task specific actions to apply to the checked out task if an ID is not provided.")
-                .arg(Arg::with_name("ID").index(1).required(true))
+                .arg(Arg::with_name("ID").index(1))
+                .arg(
+                    Arg::with_name("add")
+                        .long("add")
+                        .short("a")
+                        .takes_value(true)
+                        .help("Adds a new task and immediately checks it out"),
+                )
         )
         .subcommand(
             App::new("checkin")
@@ -237,14 +244,26 @@ fn handle_close(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect
     }
 }
 
-fn handle_checkout(tasks: &TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
-    let id = match parse_integer_arg(args.value_of("ID")) {
-        Err(_) => {
-            return ferror!("Invalid ID provided, must be an integer greater than or equal to 0")
-        }
-        Ok(None) => return ferror!("No ID provided"),
-        Ok(Some(id)) => id,
+fn handle_checkout(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+    if args.is_present("ID") && args.is_present("add") {
+        return ferror!("Cannot have an ID and the --add flag set at the same time");
+    } else if !args.is_present("ID") && !args.is_present("add") {
+        return ferror!("Must specify either an ID to checkout or `--add` to add a new task")
+    }
+
+    let id = match args.value_of("add") {
+        Some(task) => tasks.add_task(task, 1),
+        None => match parse_integer_arg(args.value_of("ID")) {
+            Err(_) => {
+                return ferror!(
+                    "Invalid ID provided, must be an integer greater than or equal to 0"
+                )
+            }
+            Ok(None) => return ferror!("No ID provided"),
+            Ok(Some(id)) => id,
+        },
     };
+
     match tasks.get(id) {
         None => ferror!("Could not find task with ID {}", id),
         Some(_) => {
