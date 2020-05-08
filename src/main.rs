@@ -1,6 +1,6 @@
+mod io;
 mod table;
 mod tasks;
-mod io;
 
 use clap::{App, Arg, ArgMatches};
 use log::{debug, LevelFilter};
@@ -10,7 +10,7 @@ use log4rs::{
     config::{Appender, Root},
 };
 use table::{TableFormatter, TableRow};
-use tasks::TaskList;
+use tasks::{Task, TaskList};
 
 /**
  * This indicates what effect executing  a command had on the task list.
@@ -349,18 +349,27 @@ fn handle_note(
 fn handle_list(tasks: &TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
     if args.is_present("all") {
         let mut task_slice = tasks.get_all();
-        task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
+        task_slice.sort_by(|a, b| order_tasks(&b, &a));
         print_task_list(task_slice);
     } else if args.is_present("closed") {
         let mut task_slice = tasks.get_closed();
-        task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
+        task_slice.sort_by(|a, b| order_tasks(&b, &a));
         print_task_list(task_slice);
     } else {
         let mut task_slice = tasks.get_open();
-        task_slice.sort_by(|a, b| b.priority().cmp(&a.priority()));
+        task_slice.sort_by(|a, b| order_tasks(&b, &a));
         print_task_list(task_slice);
     }
     Ok(CommandEffect::Read)
+}
+
+fn order_tasks(a: &Task, b: &Task) -> std::cmp::Ordering {
+    let priority_cmp = a.priority().cmp(&b.priority());
+    if priority_cmp == std::cmp::Ordering::Equal {
+        b.created_at().cmp(&a.created_at())
+    } else {
+        priority_cmp
+    }
 }
 
 fn parse_integer_arg(arg: Option<&str>) -> Result<Option<u32>, std::num::ParseIntError> {
