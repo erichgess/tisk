@@ -1,5 +1,6 @@
 mod table;
 mod tasks;
+mod io;
 
 use clap::{App, Arg, ArgMatches};
 use log::{debug, LevelFilter};
@@ -26,19 +27,6 @@ enum CommandEffect {
     CheckinTask,
 }
 
-macro_rules! ferror {
-    () => {{
-        use console::style;
-        Err(format!("{}: ", style("Error").red()))
-    }};
-    ($($arg:tt)*) => {{
-        use console::style;
-        let preface = format!("{}: ", style("Error").red());
-        let msg = format!($($arg)*);
-        Err(format!("{}{}", preface, msg))
-    }};
-}
-
 fn main() {
     configure_logger();
 
@@ -55,13 +43,13 @@ fn main() {
 
 fn run(args: &ArgMatches) -> Result<(), String> {
     if args.subcommand_matches("init").is_some() {
-        match tisk::initialize() {
-            Ok(tisk::InitResult::Initialized) => Ok(println!("Initialized directory")),
-            Ok(tisk::InitResult::AlreadyInitialized) => Ok(println!("Already initialized")),
+        match io::initialize() {
+            Ok(io::InitResult::Initialized) => Ok(println!("Initialized directory")),
+            Ok(io::InitResult::AlreadyInitialized) => Ok(println!("Already initialized")),
             Err(why) => ferror!("Failed to initialize tisk project: {}", why),
         }
     } else {
-        match find_task_dir() {
+        match io::find_task_dir() {
             Err(why) => Err(why),
             Ok(task_path) => {
                 match TaskList::read_tasks(&task_path) {
@@ -80,7 +68,7 @@ fn run(args: &ArgMatches) -> Result<(), String> {
 
                         // load checked out task, if one is checked out
                         let checked_out_task =
-                            read_checkout(&task_path).or_else(|err| ferror!("{}", err))?;
+                            io::read_checkout(&task_path).or_else(|err| ferror!("{}", err))?;
 
                         // Apply the given command to the in memory TaskList
                         let result = execute_command(&mut tasks, checked_out_task, &args);
@@ -90,10 +78,10 @@ fn run(args: &ArgMatches) -> Result<(), String> {
                             Err(e) => Err(e),
                             Ok(CommandEffect::Read) => Ok(()),
                             Ok(CommandEffect::CheckoutTask(id)) => {
-                                write_checkout(id, &task_path).or_else(|err| ferror!("{}", err))
+                                io::write_checkout(id, &task_path).or_else(|err| ferror!("{}", err))
                             }
                             Ok(CommandEffect::CheckinTask) => {
-                                write_checkin(&task_path).or_else(|err| ferror!("{}", err))
+                                io::write_checkin(&task_path).or_else(|err| ferror!("{}", err))
                             }
                             Ok(CommandEffect::Write) => {
                                 debug!("Writing tasks");
@@ -134,16 +122,6 @@ fn execute_command(
             handle_list(tasks, list)
         } else {
             handle_list(tasks, &ArgMatches::new())
-        }
-    }
-}
-
-fn find_task_dir() -> Result<std::path::PathBuf, String> {
-    match tisk::up_search(".", ".tisk") {
-        Err(why) => ferror!("Failure while searching for .tisk dir: {}", why),
-        Ok(path) => match path {
-            None => ferror!("Invalid tisk project, could not find .tisk dir in the current directory or any parent directory"),
-            Some(path) => Ok(path),
         }
     }
 }
@@ -362,50 +340,6 @@ fn handle_list(tasks: &TaskList, args: &ArgMatches) -> Result<CommandEffect, Str
         print_task_list(task_slice);
     }
     Ok(CommandEffect::Read)
-}
-
-fn write_checkout(id: u32, path: &std::path::PathBuf) -> std::io::Result<()> {
-    use std::io::prelude::*;
-
-    let mut path = std::path::PathBuf::from(path);
-    path.push(".checkout");
-    let mut file = std::fs::File::create(path)?;
-
-    let s = format!("{}", id);
-
-    file.write_all(s.as_bytes())
-}
-
-fn read_checkout(path: &std::path::PathBuf) -> std::io::Result<Option<u32>> {
-    use std::io::prelude::*;
-    let mut path = std::path::PathBuf::from(path);
-    path.push(".checkout");
-    let mut file = match std::fs::File::open(path) {
-        Ok(file) => file,
-        Err(err @ std::io::Error { .. }) if err.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(None)
-        }
-        Err(err) => return Err(err),
-    };
-
-    let mut s = String::new();
-    file.read_to_string(&mut s)?;
-    s.parse::<u32>()
-        .map(|id| Some(id))
-        .or_else(|e| Err(std::io::Error::new(std::io::ErrorKind::InvalidData, e)))
-}
-
-fn write_checkin(path: &std::path::PathBuf) -> std::io::Result<()> {
-    let mut path = std::path::PathBuf::from(path);
-    path.push(".checkout");
-
-    match std::fs::remove_file(path) {
-        Ok(_) => Ok(()),
-        Err(err @ std::io::Error { .. }) if err.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(())
-        }
-        Err(err) => return Err(err),
-    }
 }
 
 fn parse_integer_arg(arg: Option<&str>) -> Result<Option<u32>, std::num::ParseIntError> {
