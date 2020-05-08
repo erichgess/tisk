@@ -35,7 +35,7 @@ fn main() {
     std::process::exit(match run(&args) {
         Ok(_) => 0,
         Err(err) => {
-            println!("> {}", err);
+            eprintln!("> {}", err);
             1
         }
     });
