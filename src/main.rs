@@ -27,6 +27,8 @@ enum CommandEffect {
     CheckinTask,
 }
 
+type Effects = Vec<CommandEffect>;
+
 fn main() {
     configure_logger();
 
@@ -76,19 +78,28 @@ fn run(args: &ArgMatches) -> Result<(), String> {
                         // Determine if the TaskList needs to be written to disk
                         match result {
                             Err(e) => Err(e),
-                            Ok(CommandEffect::Read) => Ok(()),
-                            Ok(CommandEffect::CheckoutTask(id)) => {
-                                io::write_checkout(id, &task_path).or_else(|err| ferror!("{}", err))
-                            }
-                            Ok(CommandEffect::CheckinTask) => {
-                                io::write_checkin(&task_path).or_else(|err| ferror!("{}", err))
-                            }
-                            Ok(CommandEffect::Write) => {
-                                debug!("Writing tasks");
-                                match tasks.write_all(&task_path) {
-                                    Ok(_) => Ok(()),
-                                    Err(why) => ferror!("{}", why),
+                            Ok(effects) => {
+                                for effect in effects {
+                                    match effect {
+                                        CommandEffect::Read => (),
+                                        CommandEffect::CheckoutTask(id) => {
+                                            io::write_checkout(id, &task_path)
+                                                .or_else(|err| ferror!("{}", err))?;
+                                        }
+                                        CommandEffect::CheckinTask => {
+                                            io::write_checkin(&task_path)
+                                                .or_else(|err| ferror!("{}", err))?;
+                                        }
+                                        CommandEffect::Write => {
+                                            debug!("Writing tasks");
+                                            match tasks.write_all(&task_path) {
+                                                Ok(_) => (),
+                                                Err(why) => return ferror!("{}", why),
+                                            }
+                                        }
+                                    }
                                 }
+                                Ok(())
                             }
                         }
                     }
@@ -104,7 +115,7 @@ fn execute_command(
     tasks: &mut TaskList,
     checked_out_task: Option<u32>,
     args: &ArgMatches,
-) -> Result<CommandEffect, String> {
+) -> Result<Effects, String> {
     match args.subcommand() {
         ("add", Some(args)) => handle_add(tasks, args),
         ("close", Some(args)) => handle_close(tasks, args),
@@ -209,7 +220,7 @@ fn configure_cli<'a, 'b>() -> App<'a, 'b> {
         .subcommand(App::new("init").about("Intialize a new tisk project based in this directory"))
 }
 
-fn handle_add(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+fn handle_add(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, String> {
     let name = args.value_of("input").unwrap();
     let priority: u32 = args.value_of("priority").unwrap_or("1").parse().unwrap();
 
@@ -218,10 +229,10 @@ fn handle_add(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect, 
 
     let note = args.value_of("note");
     note.and_then(|n| tasks.get_mut(id).map(|t| t.add_note(n)));
-    Ok(CommandEffect::Write)
+    Ok(vec![CommandEffect::Write])
 }
 
-fn handle_close(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+fn handle_close(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, String> {
     let id = match parse_integer_arg(args.value_of("ID")) {
         Err(_) => {
             return ferror!("Invalid ID provided, must be an integer greater than or equal to 0")
@@ -239,20 +250,24 @@ fn handle_close(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect
         None => ferror!("Could not find task with ID {}", id),
         Some(t) => {
             println!("Task {} was closed", t.id());
-            Ok(CommandEffect::Write)
+            Ok(vec![CommandEffect::Write])
         }
     }
 }
 
-fn handle_checkout(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+fn handle_checkout(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, String> {
+    let mut effects = vec![];
     if args.is_present("ID") && args.is_present("add") {
         return ferror!("Cannot have an ID and the --add flag set at the same time");
     } else if !args.is_present("ID") && !args.is_present("add") {
-        return ferror!("Must specify either an ID to checkout or `--add` to add a new task")
+        return ferror!("Must specify either an ID to checkout or `--add` to add a new task");
     }
 
     let id = match args.value_of("add") {
-        Some(task) => tasks.add_task(task, 1),
+        Some(task) => {
+                effects.push(CommandEffect::Write);
+                tasks.add_task(task, 1)
+            },
         None => match parse_integer_arg(args.value_of("ID")) {
             Err(_) => {
                 return ferror!(
@@ -269,17 +284,18 @@ fn handle_checkout(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEff
         Some(_) => {
             debug!("Checkout task {}", id);
             println!("Checkout task {}", id);
-            Ok(CommandEffect::CheckoutTask(id))
+            effects.push(CommandEffect::CheckoutTask(id));
+            Ok(effects)
         }
     }
 }
 
-fn handle_checkin() -> Result<CommandEffect, String> {
+fn handle_checkin() -> Result<Effects, String> {
     // Generate a signal to delete the checkout file
-    Ok(CommandEffect::CheckinTask)
+    Ok(vec![CommandEffect::CheckinTask])
 }
 
-fn handle_edit(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+fn handle_edit(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, String> {
     let id = match parse_integer_arg(args.value_of("ID")) {
         Err(_) => {
             return ferror!("Invalid ID provided, must be an integer greater than or equal to 0")
@@ -296,7 +312,7 @@ fn handle_edit(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect,
     };
 
     match priority {
-        None => Ok(CommandEffect::Read),
+        None => Ok(vec![CommandEffect::Read]),
         Some(p) => match tasks.set_priority(id, p) {
             None => ferror!("Could not find task with ID {}", id),
             Some((old, new)) => {
@@ -306,7 +322,7 @@ fn handle_edit(tasks: &mut TaskList, args: &ArgMatches) -> Result<CommandEffect,
                     old.priority(),
                     new.priority()
                 );
-                Ok(CommandEffect::Write)
+                Ok(vec![CommandEffect::Write])
             }
         },
     }
@@ -316,7 +332,7 @@ fn handle_note(
     tasks: &mut TaskList,
     checked_out_task: Option<u32>,
     args: &ArgMatches,
-) -> Result<CommandEffect, String> {
+) -> Result<Effects, String> {
     let id = match args.value_of("ID") {
         Some(id) => match parse_integer_arg(Some(id)).or_else(|err| Err(format!("{}", err)))? {
             Some(id) => id,
@@ -335,7 +351,7 @@ fn handle_note(
             .notes();
         print_notes(notes);
 
-        Ok(CommandEffect::Read)
+        Ok(vec![CommandEffect::Read])
     } else {
         let note = match args.value_of("NOTE") {
             None => {
@@ -349,14 +365,14 @@ fn handle_note(
         match tasks.get_mut(id) {
             Some(task) => {
                 task.add_note(note);
-                Ok(CommandEffect::Write)
+                Ok(vec![CommandEffect::Write])
             }
             None => ferror!("No task with id {} found.", id),
         }
     }
 }
 
-fn handle_list(tasks: &TaskList, args: &ArgMatches) -> Result<CommandEffect, String> {
+fn handle_list(tasks: &TaskList, args: &ArgMatches) -> Result<Effects, String> {
     if args.is_present("all") {
         let mut task_slice = tasks.get_all();
         task_slice.sort_by(|a, b| order_tasks(&b, &a));
@@ -370,7 +386,7 @@ fn handle_list(tasks: &TaskList, args: &ArgMatches) -> Result<CommandEffect, Str
         task_slice.sort_by(|a, b| order_tasks(&b, &a));
         print_task_list(task_slice);
     }
-    Ok(CommandEffect::Read)
+    Ok(vec![CommandEffect::Read])
 }
 
 fn order_tasks(a: &Task, b: &Task) -> std::cmp::Ordering {
