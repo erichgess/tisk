@@ -170,9 +170,9 @@ fn configure_cli<'a, 'b>() -> App<'a, 'b> {
         )
         .subcommand(
             App::new("note")
-                .about("Add a note to a specific task.  Will attempt to add a note to the checked out task, unless the --id flag is used")
+                .about("Add a note to a specific task.  Will attempt to add a note to the checked out task, unless the 'id' flag is used")
                 .arg(Arg::with_name("NOTE").index(1))
-                .arg(Arg::with_name("ID").long("id"))
+                .arg(Arg::with_name("ID").long("id").help("Specify the Task ID, this overrides the checked out task and is required if no task is checked out"))
                 .arg(Arg::with_name("list").long("list").short("l")),
         )
         .subcommand(
