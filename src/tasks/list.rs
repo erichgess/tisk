@@ -55,7 +55,7 @@ impl TaskList {
 
     pub fn close_task(&mut self, id: u32) -> Option<&Task> {
         self.get_mut(id).map(|task| {
-            task.set_status(Status::Closed);
+            task.close();
             task as &Task
         })
     }

@@ -37,6 +37,8 @@ pub struct Task {
     #[serde(default = "Utc::now")]
     created_at: DateTime<Utc>,
 
+    closed_at: Option<DateTime<Utc>>,
+
     #[serde(default)]
     priority: u32,
 
@@ -52,6 +54,7 @@ impl Task {
             status,
             priority,
             created_at: Utc::now(),
+            closed_at: None,
             notes: Vec::new(),
         }
     }
@@ -72,8 +75,9 @@ impl Task {
         self.status
     }
 
-    pub fn set_status(&mut self, status: Status) {
-        self.status = status;
+    pub fn close(&mut self) {
+        self.closed_at = Some(Utc::now());
+        self.status = Status::Closed;
     }
 
     pub fn priority(&self) -> u32 {

@@ -3,5 +3,6 @@ id: 1
 name: my first test task
 status: Closed
 created_at: "2020-04-29T20:06:19.296016467Z"
+closed_at: ~
 priority: 0
 notes: []

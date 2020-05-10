@@ -3,5 +3,6 @@ id: 16
 name: "on task close: print the task which was closed"
 status: Closed
 created_at: "2020-04-30T12:54:02.210365346Z"
+closed_at: ~
 priority: 0
 notes: []
