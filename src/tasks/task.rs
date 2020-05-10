@@ -116,3 +116,25 @@ impl Task {
         Ok(y)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn close_task() {
+        let mut task = Task::new(1, "test".into(), Status::Open, 1);
+        task.close();
+        assert_eq!(Status::Closed, task.status);
+        assert_eq!(true, task.closed_at.is_some());
+    }
+
+    #[test]
+    fn notes() {
+         // add a note
+        let mut task = Task::new(1, "test".into(), Status::Open, 1);
+        task.add_note("test note");
+        assert_eq!(1, task.notes.len());
+        assert_eq!("test note", task.notes[0].note);
+    }
+}
