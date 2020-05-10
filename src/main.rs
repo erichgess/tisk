@@ -236,7 +236,7 @@ fn handle_add(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, String
 }
 
 fn handle_close(tasks: &mut TaskList, checked_out_task: Option<u32>, args: &ArgMatches) -> Result<Effects, String> {
-    info!("{:?}", checked_out_task);
+    debug!("{:?}", checked_out_task);
     let id = parse_integer_arg(args.value_of("ID"))
         .or_else(|e| ferror!("{}", e))?
         .or_else(|| checked_out_task)
