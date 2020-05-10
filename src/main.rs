@@ -124,8 +124,8 @@ fn execute_command(
         ("note", Some(args)) => handle_note(tasks, checked_out_task, args),
         ("checkout", Some(args)) => handle_checkout(tasks, args),
         ("checkin", Some(_)) => handle_checkin(),
-        ("list", Some(args)) => handle_list(tasks, args),
-        _ => handle_list(tasks, &ArgMatches::new()),
+        ("list", Some(args)) => handle_list(tasks, checked_out_task, args),
+        _ => handle_list(tasks, checked_out_task, &ArgMatches::new()),
     }
 }
 
@@ -373,19 +373,19 @@ fn handle_note(
     }
 }
 
-fn handle_list(tasks: &TaskList, args: &ArgMatches) -> Result<Effects, String> {
+fn handle_list(tasks: &TaskList, checked_out_task: Option<u32>, args: &ArgMatches) -> Result<Effects, String> {
     if args.is_present("all") {
         let mut task_slice = tasks.get_all();
         task_slice.sort_by(|a, b| order_tasks(&b, &a));
-        print_task_list(task_slice);
+        print_task_list(task_slice, checked_out_task);
     } else if args.is_present("closed") {
         let mut task_slice = tasks.get_closed();
         task_slice.sort_by(|a, b| order_tasks(&b, &a));
-        print_task_list(task_slice);
+        print_task_list(task_slice, checked_out_task);
     } else {
         let mut task_slice = tasks.get_open();
         task_slice.sort_by(|a, b| order_tasks(&b, &a));
-        print_task_list(task_slice);
+        print_task_list(task_slice, checked_out_task);
     }
     Ok(vec![CommandEffect::Read])
 }
@@ -420,7 +420,7 @@ fn configure_logger() {
     }
 }
 
-pub fn print_task_list(tasks: Vec<&tasks::Task>) {
+pub fn print_task_list(tasks: Vec<&tasks::Task>, checked_out_task: Option<u32>) {
     use console::Term;
 
     // Get terminal dimensions so that we can compute how wide columns can be and
@@ -446,6 +446,8 @@ pub fn print_task_list(tasks: Vec<&tasks::Task>) {
     ]);
 
     // Print the table
+    let checkout_style = console::Style::new().green();
+    let default_style = console::Style::new().white();
     tf.print_header();
     for task in tasks.iter() {
         let mut row = TableRow::new();
@@ -454,7 +456,16 @@ pub fn print_task_list(tasks: Vec<&tasks::Task>) {
         row.push(task.name());
         row.push(task.priority());
         row.push(task.notes().len());
-        tf.print_row(row);
+        //let mut print_row = tf.print_row(row);
+
+        let print_row = match checked_out_task {
+        Some(id) if id == task.id() => {
+            checkout_style.apply_to(tf.print_row(row))
+        },
+        _ => default_style.apply_to(tf.print_row(row)),
+        };
+
+        print!("{}", print_row);
     }
 }
 
@@ -483,7 +494,7 @@ pub fn print_notes(notes: Vec<&tasks::Note>) {
         let mut row = TableRow::new();
         row.push(idx);
         row.push(note.note());
-        tf.print_row(row);
+        print!("{}", tf.print_row(row));
         idx += 1;
     }
 }

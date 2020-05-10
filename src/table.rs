@@ -77,7 +77,9 @@ impl TableFormatter {
         println!();
     }
 
-    pub fn print_row(&self, cols: TableRow) {
+    pub fn print_row(&self, cols: TableRow) -> String {
+        use std::fmt::Write;
+
         let mut longest_column = 1;
         let mut col_text = vec![];
         for i in 0..cols.row.len() {
@@ -89,24 +91,27 @@ impl TableFormatter {
             col_text.push(fitted_text.clone());
         }
 
+        let mut row = String::new();
+
         for line in 0..longest_column {
             for col in 0..cols.row.len() {
                 if line < col_text[col].len() {
-                    print!(
+                    write!(row, 
                         "{0: <width$}",
                         col_text[col][line],
                         width = self.col_widths[col]
-                    );
+                    ).unwrap();
                 } else {
-                    print!("{0: <width$}", "", width = self.col_widths[col]);
+                    write!(row, "{0: <width$}", "", width = self.col_widths[col]).unwrap();
                 }
 
                 if col < cols.row.len() - 1 {
-                    print!(" ");
+                    write!(row, " ").unwrap();
                 }
             }
-            println!();
+            writeln!(row).unwrap();
         }
+        row
     }
 
     /**
