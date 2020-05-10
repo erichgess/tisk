@@ -119,7 +119,7 @@ fn execute_command(
 ) -> Result<Effects, String> {
     match args.subcommand() {
         ("add", Some(args)) => handle_add(tasks, args),
-        ("close", Some(args)) => handle_close(tasks, args),
+        ("close", Some(args)) => handle_close(tasks, checked_out_task, args),
         ("edit", Some(args)) => handle_edit(tasks, checked_out_task, args),
         ("note", Some(args)) => handle_note(tasks, checked_out_task, args),
         ("checkout", Some(args)) => handle_checkout(tasks, args),
@@ -233,14 +233,13 @@ fn handle_add(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, String
     Ok(vec![CommandEffect::Write])
 }
 
-fn handle_close(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, String> {
-    let id = match parse_integer_arg(args.value_of("ID")) {
-        Err(_) => {
-            return ferror!("Invalid ID provided, must be an integer greater than or equal to 0")
-        }
-        Ok(None) => return ferror!("No ID provided"),
-        Ok(Some(id)) => id,
-    };
+fn handle_close(tasks: &mut TaskList, checked_out_task: Option<u32>, args: &ArgMatches) -> Result<Effects, String> {
+    info!("{:?}", checked_out_task);
+    let id = parse_integer_arg(args.value_of("ID"))
+        .or_else(|e| ferror!("{}", e))?
+        .or_else(|| checked_out_task)
+        .ok_or("No ID provided and no task checked out")
+        .or_else(|why| ferror!("{}", why))?;  // TODO: this is gnarly: probably should not do formatting at this level but at the level where the message is being printed.
 
     debug!("Closing task with ID: {}", id);
     match args.value_of("note") {
@@ -301,7 +300,7 @@ fn handle_edit(
     checked_out_task: Option<u32>,
     args: &ArgMatches,
 ) -> Result<Effects, String> {
-    info!("{:?}", checked_out_task);
+    debug!("{:?}", checked_out_task);
     let id = parse_integer_arg(args.value_of("ID"))
         .or_else(|e| ferror!("{}", e))?
         .or_else(|| checked_out_task)
