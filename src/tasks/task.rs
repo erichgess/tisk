@@ -2,6 +2,7 @@ use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::prelude::*;
+use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub enum Status {
@@ -101,7 +102,8 @@ impl Task {
         path.push(format!("{}.yaml", task.id));
         let mut file = File::create(path)?;
 
-        let s = serde_yaml::to_string(task).unwrap();
+        let s = serde_yaml::to_string(task)
+            .map_err(|why| IoError::new(IoErrorKind::InvalidData, why))?;
 
         file.write_all(s.as_bytes())
     }
@@ -112,7 +114,8 @@ impl Task {
         let mut s = String::new();
         file.read_to_string(&mut s)?;
 
-        let y = serde_yaml::from_str::<Task>(&s).unwrap(); // TODO: pass this result up to the caller
+        let y = serde_yaml::from_str::<Task>(&s)
+            .map_err(|why| IoError::new(IoErrorKind::InvalidData, why))?;
         Ok(y)
     }
 }
@@ -131,7 +134,7 @@ mod tests {
 
     #[test]
     fn notes() {
-         // add a note
+        // add a note
         let mut task = Task::new(1, "test".into(), Status::Open, 1);
         task.add_note("test note");
         assert_eq!(1, task.notes.len());
