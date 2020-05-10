@@ -37,7 +37,9 @@ fn main() {
     std::process::exit(match run(&args) {
         Ok(_) => 0,
         Err(err) => {
-            eprintln!("> {}", err);
+            let preface = console::style("Error").red();
+
+            eprintln!("{}: {}", preface, err);
             1
         }
     });

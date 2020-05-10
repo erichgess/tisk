@@ -3,14 +3,11 @@
 #[macro_export]
 macro_rules! ferror {
     () => {{
-        use console::style;
-        Err(format!("{}: ", style("Error").red()))
+        Err(format!("Unknown error"))
     }};
     ($($arg:tt)*) => {{
-        use console::style;
-        let preface = format!("{}: ", style("Error").red());
         let msg = format!($($arg)*);
-        Err(format!("{}{}", preface, msg))
+        Err(msg)
     }};
 }
 
