@@ -12,6 +12,9 @@ macro_rules! ferror {
     }};
 }
 
+/// `up_search` will search for `file_name` starting in `dir` and, 
+/// if not found, each parent directory of `dir`. Returning the 
+/// canonical path of `file_name` if found and `None` if not found.
 pub fn up_search(dir: &str, file_name: &str) -> std::io::Result<Option<std::path::PathBuf>> {
     let path = std::fs::canonicalize(dir)?;
 

@@ -1,6 +1,10 @@
 use super::io::get_files;
 use super::task::{Status, Task};
 
+/**
+ * Stores a list of Tasks and provides functions for managing
+ * those tasks.
+ */
 pub struct TaskList {
     tasks: Vec<Task>,
 }

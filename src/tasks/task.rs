@@ -10,6 +10,9 @@ pub enum Status {
     Closed,
 }
 
+/**
+ * A Note stores a comment or note about a specific Task
+ */
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Note {
     created_at: DateTime<Utc>,
@@ -29,6 +32,10 @@ impl Note {
     }
 }
 
+/**
+ * A single Task its description,  status, and any other information related to this
+ * task.
+ */
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
     id: u32,

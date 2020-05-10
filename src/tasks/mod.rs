@@ -1,3 +1,7 @@
+/*!
+ * Manage information about tasks
+ */
+
 mod io;
 mod list;
 mod task;
