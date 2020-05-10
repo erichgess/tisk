@@ -94,12 +94,12 @@ fn run(args: &ArgMatches) -> Result<(), String> {
                                 }
                                 CommandEffect::CheckoutTask(id) => {
                                     debug!("Checkout task {}", id);
-                                    io::write_checkout(id, &task_path)
+                                    io::commit_checkout(id, &task_path)
                                         .or_else(|err| ferror!("{}", err))
                                 }
                                 CommandEffect::CheckinTask => {
                                     debug!("Checkin task");
-                                    io::write_checkin(&task_path).or_else(|err| ferror!("{}", err))
+                                    io::commit_checkin(&task_path).or_else(|err| ferror!("{}", err))
                                 }
                             })
                             .collect()
@@ -373,7 +373,11 @@ fn handle_note(
     }
 }
 
-fn handle_list(tasks: &TaskList, checked_out_task: Option<u32>, args: &ArgMatches) -> Result<Effects, String> {
+fn handle_list(
+    tasks: &TaskList,
+    checked_out_task: Option<u32>,
+    args: &ArgMatches,
+) -> Result<Effects, String> {
     if args.is_present("all") {
         let mut task_slice = tasks.get_all();
         task_slice.sort_by(|a, b| order_tasks(&b, &a));
@@ -456,13 +460,10 @@ pub fn print_task_list(tasks: Vec<&tasks::Task>, checked_out_task: Option<u32>) 
         row.push(task.name());
         row.push(task.priority());
         row.push(task.notes().len());
-        //let mut print_row = tf.print_row(row);
 
-        let print_row = match checked_out_task {
-        Some(id) if id == task.id() => {
-            checkout_style.apply_to(tf.print_row(row))
-        },
-        _ => default_style.apply_to(tf.print_row(row)),
+        let print_row = match (checked_out_task, tf.print_row(row)) {
+            (Some(id), row) if id == task.id() => checkout_style.apply_to(row),
+            (_, row) => default_style.apply_to(row),
         };
 
         print!("{}", print_row);

@@ -1,3 +1,5 @@
+/// Extract the text message from an `Err` and format the text 
+/// by prepending it with "Error" in red.
 #[macro_export]
 macro_rules! ferror {
     () => {{
@@ -58,6 +60,9 @@ pub enum InitResult {
     AlreadyInitialized,
 }
 
+/// Will attempt to initialize the current directory as a `tisk`
+/// project.  If successful will return `Initialied`, if the current
+/// directory is already initialized will return `AlreadyInitialized`.
 pub fn initialize() -> std::io::Result<InitResult> {
     match std::fs::read_dir("./.tisk") {
         Ok(_) => Ok(InitResult::AlreadyInitialized),
@@ -68,6 +73,8 @@ pub fn initialize() -> std::io::Result<InitResult> {
     }
 }
 
+/// Searches for the location of the `.tisk` project directory in
+/// the current directory or any of the current directory's ancestors.
 pub fn find_task_dir() -> Result<std::path::PathBuf, String> {
     match up_search(".", ".tisk") {
         Err(why) => ferror!("Failure while searching for .tisk dir: {}", why),
@@ -78,7 +85,8 @@ pub fn find_task_dir() -> Result<std::path::PathBuf, String> {
     }
 }
 
-pub fn write_checkout(id: u32, path: &std::path::PathBuf) -> std::io::Result<()> {
+/// Commit that task `id` has been checked out to disk.
+pub fn commit_checkout(id: u32, path: &std::path::PathBuf) -> std::io::Result<()> {
     use std::io::prelude::*;
 
     let mut path = std::path::PathBuf::from(path);
@@ -90,7 +98,9 @@ pub fn write_checkout(id: u32, path: &std::path::PathBuf) -> std::io::Result<()>
     file.write_all(s.as_bytes())
 }
 
-pub fn read_checkout(path: &std::path::PathBuf) -> std::io::Result<Option<u32>> {
+/// Read what task `id` has been checked out from disk. If not task is checked
+/// out, return `None`.
+pub fn read_checkout(path: &std::path::PathBuf) -> std::io::Result<Option<u32>> { 
     use std::io::prelude::*;
     let mut path = std::path::PathBuf::from(path);
     path.push(".checkout");
@@ -109,7 +119,8 @@ pub fn read_checkout(path: &std::path::PathBuf) -> std::io::Result<Option<u32>> 
         .or_else(|e| Err(std::io::Error::new(std::io::ErrorKind::InvalidData, e)))
 }
 
-pub fn write_checkin(path: &std::path::PathBuf) -> std::io::Result<()> {
+/// Commit that the currently checked out task has been checked.
+pub fn commit_checkin(path: &std::path::PathBuf) -> std::io::Result<()> {
     let mut path = std::path::PathBuf::from(path);
     path.push(".checkout");
 

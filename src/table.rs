@@ -1,3 +1,17 @@
+/// Format a table with a custom number of columns, column types,
+/// and rows. TableFormatter manages the width of each column and
+/// formats the contents of a cell to fit within its column.
+/// Cells can contain any type so long they implement the 
+/// `std::fmt::Display` trait.
+pub struct TableFormatter {
+    width: usize, // the width, in characters, of the table
+    col_widths: Vec<usize>,
+    cols: Vec<String>,
+}
+
+// A single row in a table.  Pass a `TableRow` to
+// `TableFormatter::print_row` which will format the cells
+// into a `String`.
 pub struct TableRow<'a> {
     row: Vec<Box<dyn std::fmt::Display + 'a>>,
 }
@@ -12,12 +26,6 @@ impl<'a> TableRow<'a> {
     }
 }
 
-pub struct TableFormatter {
-    width: usize, // the width, in characters, of the table
-    col_widths: Vec<usize>,
-    cols: Vec<String>,
-}
-
 impl TableFormatter {
     pub fn new(width: usize) -> Self {
         Self {
@@ -27,6 +35,10 @@ impl TableFormatter {
         }
     }
 
+    /// Sets the number of columns in the table, their labels, and
+    /// how wide the column is.  If not width is provided, then the
+    /// width is dynamically calculated based upon the width of the
+    /// table and how wide the other columns are.
     pub fn set_columns(&mut self, cols: Vec<(&str, Option<usize>)>) {
         // Add up the widths of the explicitly defined columns
         // adding 1 to account for a space between each column
@@ -60,6 +72,9 @@ impl TableFormatter {
         }
     }
 
+    /// Returns a formatted string containing the label for each
+    /// column positioned and formatted to align with the formatted
+    /// table rows.
     pub fn print_header(&self) {
         use console::Style;
         let ul = Style::new().underlined();
@@ -77,6 +92,8 @@ impl TableFormatter {
         println!();
     }
 
+    /// Takes a single table row returns a string with each cell
+    /// formatted to fit within its column.
     pub fn print_row(&self, cols: TableRow) -> String {
         use std::fmt::Write;
 
