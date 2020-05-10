@@ -4,13 +4,13 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Status {
     Open,
     Closed,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Note {
     created_at: DateTime<Utc>,
     note: String,
@@ -29,7 +29,7 @@ impl Note {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
     id: u32,
     name: String,
@@ -137,7 +137,7 @@ mod tests {
         // add a note
         let mut task = Task::new(1, "test".into(), Status::Open, 1);
         task.add_note("test note");
-        assert_eq!(1, task.notes.len());
-        assert_eq!("test note", task.notes[0].note);
+        assert_eq!(1, task.notes().len());
+        assert_eq!("test note", task.notes()[0].note);
     }
 }
