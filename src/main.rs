@@ -235,13 +235,17 @@ fn handle_add(tasks: &mut TaskList, args: &ArgMatches) -> Result<Effects, String
     Ok(vec![CommandEffect::Write])
 }
 
-fn handle_close(tasks: &mut TaskList, checked_out_task: Option<u32>, args: &ArgMatches) -> Result<Effects, String> {
+fn handle_close(
+    tasks: &mut TaskList,
+    checked_out_task: Option<u32>,
+    args: &ArgMatches,
+) -> Result<Effects, String> {
     debug!("{:?}", checked_out_task);
     let id = parse_integer_arg(args.value_of("ID"))
         .or_else(|e| ferror!("{}", e))?
         .or_else(|| checked_out_task)
         .ok_or("No ID provided and no task checked out")
-        .or_else(|why| ferror!("{}", why))?;  // TODO: this is gnarly: probably should not do formatting at this level but at the level where the message is being printed.
+        .or_else(|why| Err(why))?;
 
     debug!("Closing task with ID: {}", id);
     match args.value_of("note") {
@@ -307,7 +311,7 @@ fn handle_edit(
         .or_else(|e| ferror!("{}", e))?
         .or_else(|| checked_out_task)
         .ok_or("No ID provided and no task checked out")
-        .or_else(|why| ferror!("{}", why))?;  // TODO: this is gnarly: probably should not do formatting at this level but at the level where the message is being printed.
+        .or_else(|why| ferror!("{}", why))?;
 
     let priority = match parse_integer_arg(args.value_of("priority")) {
         Err(_) => {
