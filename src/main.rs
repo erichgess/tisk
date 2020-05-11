@@ -3,7 +3,7 @@ mod table;
 mod tasks;
 
 use clap::{App, Arg, ArgMatches};
-use log::{debug, info, LevelFilter};
+use log::{debug, LevelFilter};
 use log4rs;
 use log4rs::{
     append::console::ConsoleAppender,
