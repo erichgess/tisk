@@ -51,6 +51,11 @@ impl<T: Eq> Token<T> {
             Term::Stack(ref s) => s.as_ref(),
         }
     }
+
+    #[inline]
+    pub fn ty(&self) -> T {
+        self.ty
+    }
 }
 
 pub struct CharTokenIter<'a, T: Eq> {

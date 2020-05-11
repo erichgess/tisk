@@ -1,3 +1,6 @@
+use super::tokenizer::CharTokenIter;
+use super::tokenizer::Tokenizer;
+
 /// Format a table with a custom number of columns, column types,
 /// and rows. TableFormatter manages the width of each column and
 /// formats the contents of a cell to fit within its column.
@@ -194,6 +197,84 @@ impl TableFormatter {
             lines.push(text.get(start..end).unwrap().into());
         }
         lines
+    }
+    
+    fn format_to_column2(text: &String, width: usize, split_limit: usize) -> Vec<String> {
+        #[derive(Debug, Eq, PartialEq)]
+        enum WSToken {
+            Whitespace,
+            Word,
+        }
+
+        pub struct WhitespaceTokenizer;
+
+        impl<'a> Tokenizer<'a, WSToken> for WhitespaceTokenizer {
+            type TokenIter = CharTokenIter<'a, WSToken>;
+
+            fn tokenize(&self, input: &'a str) -> Self::TokenIter {
+                CharTokenIter::new(category, input)
+            }
+        }
+
+        #[inline]
+        fn category(input: char) -> WSToken {
+            if input.is_whitespace() {
+                WSToken::Whitespace
+            }  else {
+                WSToken::Word
+            }
+        }
+        // Tokenize string
+        let mut tokens = WhitespaceTokenizer.tokenize(text);
+
+        // create a vector representing a single line of text
+        let mut lines = vec![];
+
+        let mut line = vec![];
+        let mut line_width = 0;
+        // iterate through the tokens and attempt to add the token to the current line
+        for token in tokens {
+            // If adding the token to the current line would exceed `width` then:
+            let token_len = token.term().len();
+            if line.len() + token_len > width {
+                match token.ty() {
+                    WSToken::Whitespace => {
+                        lines.push(line);
+                        line = vec![];
+                        line_width = 0;
+                        line.push(token.term());
+                    },
+                    WSToken::Word => {
+                        if token_len < split_limit && split_limit < width {
+                            lines.push(line);
+                            line = vec![];
+                            line_width = 0;
+                            line.push(token.term());
+                        } else {
+                            let remaining_space = width - line_width;
+                            let first = &token.term()[0..remaining_space];
+                            let second = &token.term()[remaining_space..];
+                            line.push(first);
+                            line = vec![];
+                            line.push(second);
+                            line_width = second.len();
+                        }
+                    },
+                };
+            } else {
+                let s = token.term().clone();
+                line.push(s);
+                line_width += token_len;
+            }
+
+            //  1. If token is whitespace: consume the white space and start a new line
+            //  2. If the token is a word and if the word is shorter than `split_limit`
+            //     and `split_limit` > `width`, then start a new line
+            //  3. if the token is a word and is longer than `split_limit`, then split
+            //     the word
+        }
+
+        vec![]
     }
 }
 
