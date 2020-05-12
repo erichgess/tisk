@@ -362,4 +362,12 @@ mod tests {
         assert_eq!(("over the ", false), lines[4]);
         assert_eq!(("lazy dog", false), lines[5]);
     }
+
+    #[bench]
+    fn bench(b: &mut test::Bencher) {
+        b.iter(||{
+            let text = String::from("argleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargley");
+            format_to_column(&text, 10, 5);
+        });
+    }
 }
