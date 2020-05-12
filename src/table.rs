@@ -105,7 +105,7 @@ impl TableFormatter {
             if fitted_text.len() > longest_column {
                 longest_column = fitted_text.len();
             }
-            col_text.push(fitted_text.clone());
+            col_text.push(fitted_text);
         }
 
         let mut row = String::new();
