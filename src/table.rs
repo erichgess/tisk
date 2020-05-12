@@ -28,6 +28,7 @@ impl<'a> TableRow<'a> {
 }
 
 impl TableFormatter {
+
     pub fn new(width: usize) -> Self {
         Self {
             width,
@@ -95,50 +96,76 @@ impl TableFormatter {
 
     /// Takes a single table row returns a string with each cell
     /// formatted to fit within its column.
-    pub fn print_row(&self, cols: TableRow) -> String {
+    pub fn print_row(&self, cols: TableRow) -> Result<String, Box<dyn std::error::Error>> {
         use std::fmt::Write;
 
-        let mut longest_column = 1;
+        // convert each row into a string
         let mut col_text = vec![];
         for i in 0..cols.row.len() {
-            let text = cols.row[i].to_string().clone();
-            let fitted_text = TableFormatter::format_to_column(&text, self.col_widths[i], 7);
+            col_text.push(cols.row[i].to_string());
+        }
+
+        let mut longest_column = 1;
+        let mut col_text_fmt = vec![];
+        for i in 0..cols.row.len() {
+            let text = &col_text[i];
+            let fitted_text = formatting::format_to_column(&text, self.col_widths[i], 7);
             if fitted_text.len() > longest_column {
                 longest_column = fitted_text.len();
             }
-            col_text.push(fitted_text);
+            col_text_fmt.push(fitted_text);
         }
 
         let mut row = String::new();
 
         for line in 0..longest_column {
             for col in 0..cols.row.len() {
-                if line < col_text[col].len() {
+                if line < col_text_fmt[col].len() {
                     write!(row, 
                         "{0: <width$}",
-                        col_text[col][line],
+                        col_text_fmt[col][line].0,
                         width = self.col_widths[col]
                     ).unwrap();
+                    if col_text_fmt[col][line].1 {
+                        write!(row, "-")?;
+                    }
                 } else {
-                    write!(row, "{0: <width$}", "", width = self.col_widths[col]).unwrap();
+                    write!(row, "{0: <width$}", "", width = self.col_widths[col])?;
                 }
 
                 if col < cols.row.len() - 1 {
-                    write!(row, " ").unwrap();
+                    write!(row, " ")?;
                 }
             }
-            writeln!(row).unwrap();
+            writeln!(row)?;
         }
-        row
+        Ok(row)
     }
+}
 
+mod formatting {
+    pub type Hyphenate = bool;
     /**
      * Takes a given string and formats it into a vector of strings
      * such that each string is no longer than the given width.  It will
      * attempt to break lines at spaces but if a word is longer than
      * the given column width it will split on the word.
+     *
+     * `text` - the text that needs to be formatted to fit within the width
+     * of a column.
+     * 
+     * `width` - the width of the column in characters.
+     * 
+     * `split_limit` - a word must be longer than this in order to be
+     * split across lines.  Unless `split_limit` > `width`, in which case,
+     * it will be ignored.
+     *
+     * Returns a vector of tuples where the first element is a slice from
+     * `text` representing a single line and the second element is a boolean
+     * indicating if the line should have a hyphen appended or not.  This
+     * will be `true` if a word was split across this line and the next.
      */
-    fn format_to_column(text: &String, width: usize, split_limit: usize) -> Vec<String> {
+    pub fn format_to_column(text: &String, width: usize, split_limit: usize) -> Vec<(&str,Hyphenate)> {
         let mut breaks:Vec<(usize, usize, bool)> = vec![]; // start and length of each slice into `text`, true if midword
         let mut line_start = 0;
         let mut line_len = 0;
@@ -204,11 +231,9 @@ impl TableFormatter {
         for b in breaks {
             let start = b.0;
             let end = start + b.1;
-            let mut line = text.get(start..end).unwrap().to_owned();
-            if hyphen_space > 0 && b.2 {
-                line.push_str("-");
-            }
-            lines.push(line);
+            let line = text.get(start..end).unwrap();
+            let hyphenate = hyphen_space > 0 && b.2;
+            lines.push((line, hyphenate));
         }
         lines
     }
@@ -216,122 +241,135 @@ impl TableFormatter {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::formatting::*;
 
     #[test]
     fn split_short_words() {
         let text = String::from("the quick brown fox");
-        let lines = TableFormatter::format_to_column(&text, 10, 5);
+        let lines = format_to_column(&text, 10, 5);
         assert_eq!(2, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("the quick ", lines[0]);
-        assert_eq!("brown fox", lines[1]);
+        assert_eq!(("the quick ", false), lines[0]);
+        assert_eq!(("brown fox", false), lines[1]);
     }
 
     #[test]
     fn split_short_words_multiple_spaces() {
         let text = String::from("the quick  brown fox   jumped   ");
-        let lines = TableFormatter::format_to_column(&text, 10, 5);
+        let lines = format_to_column(&text, 10, 5);
         assert_eq!(4, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("the quick ", lines[0]);
-        assert_eq!(" brown fox", lines[1]);
-        assert_eq!("   jumped ", lines[2]);
-        assert_eq!("  ", lines[3]);
+        assert_eq!(("the quick ", false), lines[0]);
+        assert_eq!((" brown fox", false), lines[1]);
+        assert_eq!(("   jumped ", false), lines[2]);
+        assert_eq!(("  ", false), lines[3]);
     }
 
     #[test]
     fn split_short_words_whitepsace_longer_than_column() {
         let text = String::from("the            fox");
-        let lines = TableFormatter::format_to_column(&text, 10, 5);
+        let lines = format_to_column(&text, 10, 5);
         assert_eq!(2, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("the       ", lines[0]);
-        assert_eq!("     fox", lines[1]);
+        assert_eq!(("the       ", false), lines[0]);
+        assert_eq!(("     fox", false), lines[1]);
     }
 
     #[test]
     fn no_split() {
         let text = String::from("the quick");
-        let lines = TableFormatter::format_to_column(&text, 10, 5);
+        let lines = format_to_column(&text, 10, 5);
         assert_eq!(1, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("the quick", lines[0]);
+        assert_eq!(("the quick", false), lines[0]);
     }
 
     #[test]
     fn split_many_words() {
         let text = String::from("the quick brown fox jumped over the lazy dog");
-        let lines = TableFormatter::format_to_column(&text, 10, 5);
+        let lines = format_to_column(&text, 10, 5);
         assert_eq!(5, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("the quick ", lines[0]);
-        assert_eq!("brown fox", lines[1]);
-        assert_eq!("jumped ", lines[2]);
-        assert_eq!("over the ", lines[3]);
-        assert_eq!("lazy dog", lines[4]);
+        assert_eq!(("the quick ", false), lines[0]);
+        assert_eq!(("brown fox", false), lines[1]);
+        assert_eq!(("jumped ", false), lines[2]);
+        assert_eq!(("over the ", false), lines[3]);
+        assert_eq!(("lazy dog", false), lines[4]);
     }
 
     #[test]
     fn split_word_longer_than_min_but_smaller_than_column_width() {
         let text = String::from("the quick brown fox fast jumped over the lazy dog");
-        let lines = TableFormatter::format_to_column(&text, 10, 5);
+        let lines = format_to_column(&text, 10, 5);
         assert_eq!(6, lines.len());
         for line in lines.iter() {
-            assert_eq!(true, line.len() <= 10);
+            if line.1 == false {
+                assert_eq!(true, line.0.len() <= 10);
+            } else {
+                assert_eq!(true, line.0.len() <= 9);
+            }
         }
         //          1234567890    <- column numbers
-        assert_eq!("the quick ", lines[0]);
-        assert_eq!("brown fox ", lines[1]);
-        assert_eq!("fast jump-", lines[2]);
-        assert_eq!("ed over ", lines[3]);
-        assert_eq!("the lazy ", lines[4]);
-        assert_eq!("dog", lines[5]);
+        assert_eq!(("the quick ", false), lines[0]);
+        assert_eq!(("brown fox ", false), lines[1]);
+        assert_eq!(("fast jump", true), lines[2]);
+        assert_eq!(("ed over ", false), lines[3]);
+        assert_eq!(("the lazy ", false), lines[4]);
+        assert_eq!(("dog", false), lines[5]);
     }
 
     #[test]
     fn split_word_longer_than_column_width() {
         let text = String::from("argleybargley");
-        let lines = TableFormatter::format_to_column(&text, 10, 5);
+        let lines = format_to_column(&text, 10, 5);
         assert_eq!(2, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("argleybar-", lines[0]);
-        assert_eq!("gley", lines[1]);
+        assert_eq!(("argleybar", true), lines[0]);
+        assert_eq!(("gley", false), lines[1]);
     }
 
     #[test]
     fn split_word_longer_narrow_column() {
         let text = String::from("argleybargley");
-        let lines = TableFormatter::format_to_column(&text, 1, 5);
+        let lines = format_to_column(&text, 1, 5);
         assert_eq!(text.len(), lines.len());
         //          1234567890    <- column numbers
         for (idx, c) in text.chars().enumerate() {
-            assert_eq!(format!("{}", c), lines[idx]);
+            assert_eq!(format!("{}", c), lines[idx].0);
+            assert_eq!(false, lines[idx].1);
         }
     }
 
     #[test]
     fn split_word_longer_than_column_width_shorter_than_min_word_and_too_short_add_hyphen() {
         let text = String::from("bark");
-        let lines = TableFormatter::format_to_column(&text, 3, 5);
+        let lines = format_to_column(&text, 3, 5);
         assert_eq!(2, lines.len());
         //          123    <- column numbers
-        assert_eq!("bar", lines[0]);   // the column is too narrow to add a hyphen
-        assert_eq!("k", lines[1]);
+        assert_eq!(("bar", false), lines[0]);   // the column is too narrow to add a hyphen
+        assert_eq!(("k", false), lines[1]);
     }
 
     #[test]
     fn split_word_change_limit() {
         let text = String::from("the quick brown fox fast jumped over the lazy dog");
-        let lines = TableFormatter::format_to_column(&text, 10, 7);
+        let lines = format_to_column(&text, 10, 7);
         assert_eq!(6, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("the quick ", lines[0]);
-        assert_eq!("brown fox ", lines[1]);
-        assert_eq!("fast ", lines[2]);
-        assert_eq!("jumped ", lines[3]);
-        assert_eq!("over the ", lines[4]);
-        assert_eq!("lazy dog", lines[5]);
+        assert_eq!(("the quick ", false), lines[0]);
+        assert_eq!(("brown fox ", false), lines[1]);
+        assert_eq!(("fast ", false), lines[2]);
+        assert_eq!(("jumped ", false), lines[3]);
+        assert_eq!(("over the ", false), lines[4]);
+        assert_eq!(("lazy dog", false), lines[5]);
+    }
+
+    #[bench]
+    fn bench(b: &mut test::Bencher) {
+        b.iter(||{
+            let text = String::from("argleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargley");
+            format_to_column(&text, 10, 5);
+        });
     }
 
     #[bench]
