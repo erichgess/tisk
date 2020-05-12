@@ -141,8 +141,8 @@ impl TableFormatter {
         let mut index = 0;
         let mut chars = text.chars();
         let mut breaks = vec![];
-        let mut start = 0;
-        let mut end = 0;
+        let mut line_start = 0;
+        let mut line_end = 0;
         let mut word_start = 0;
         let mut word_end;
 
@@ -157,10 +157,10 @@ impl TableFormatter {
                 word_end = index; // whitespace will be added to the current word until a new word starts or the end of the column is reached
                 let word_len = word_end - word_start;
 
-                if word_len + (end - start) <= width {
-                    end = word_end;
+                if word_len + (line_end - line_start) <= width {
+                    line_end = word_end;
                     if index == text.len() {
-                        breaks.push((start, end));
+                        breaks.push((line_start, line_end));
                     }
                 } else {
                     let splittable = if split_limit < width {
@@ -168,18 +168,18 @@ impl TableFormatter {
                     } else {
                         true
                     };
-                    if splittable && word_len + (end - start) > width {
-                        end = word_start + (width - (end - start));
-                        breaks.push((start, end));
-                        start = end;
-                        end = word_end;
+                    if splittable && word_len + (line_end - line_start) > width {
+                        line_end = word_start + (width - (line_end - line_start));
+                        breaks.push((line_start, line_end));
+                        line_start = line_end;
+                        line_end = word_end;
                     } else {
-                        breaks.push((start, end));
-                        start = word_start;
-                        end = word_end;
+                        breaks.push((line_start, line_end));
+                        line_start = word_start;
+                        line_end = word_end;
                     }
-                    if end == text.len() {
-                        breaks.push((start, end));
+                    if line_end == text.len() {
+                        breaks.push((line_start, line_end));
                     }
                 }
 
@@ -193,6 +193,55 @@ impl TableFormatter {
             let end = if b.1 > text.len() { text.len() } else { b.1 };
             lines.push(text.get(start..end).unwrap().into());
         }
+        lines
+    }
+
+    fn format_to_column2(text: &String, width: usize, split_limit: usize) -> Vec<String> {
+        let mut breaks:Vec<(usize, usize)> = vec![]; // start and length of each slice into `text`
+        let mut line_start = 0;
+        let mut line_len = 0;
+
+        let mut chars = text.chars();
+        while let Some(c) = chars.next() {
+            // if c is whitespace
+            //    if line_len + 1 > col_width
+            //          breaks.push(line_start,line_end)
+            //          line_start = index
+            //          line_end = 0
+            //    else
+            //          line_len += 1
+            // else
+            //     word_start = index
+            //     word_len = 1
+            //     while c.peek() is not whitespace
+            //           c.next()
+            //          word_len += 1
+            //     if word_len + line_len <= width
+            //          line_end += word_end
+            //     else 
+            //          splittable = word_len > col_width || word_len > split_limit
+            //          if splittable
+            //              break = word_start + (width - line_len)
+            //              breaks.push((line_start, width))
+            //              line_start = break
+            //              line_len = 0
+            //              word_len = word_len - (break - word_start)
+            //              while word_len > 0
+            //                  if word_len <= col_width
+            //                      line_len = word_len
+            //                      word_len = 0
+            //                  else
+            //                      breaks.push((line_start, col_width))
+            //                      line_start += col_width
+            //                      word_len -= col_with
+            //                      line_len = 0
+            //          else
+            //              breaks.push((line_start, line_len))
+            //              line_start = word_start
+            //              line_len = word_len
+        }
+
+        let mut lines = vec![];
         lines
     }
 }
@@ -273,6 +322,16 @@ mod tests {
     fn split_word_longer_than_column_width() {
         let text = String::from("argleybargley");
         let lines = TableFormatter::format_to_column(&text, 10, 5);
+        assert_eq!(2, lines.len());
+        //          1234567890    <- column numbers
+        assert_eq!("argleybarg", lines[0]);
+        assert_eq!("ley", lines[1]);
+    }
+
+    #[test]
+    fn split_word_longer_narrow_column() {
+        let text = String::from("argleybargley");
+        let lines = TableFormatter::format_to_column(&text, 1, 5);
         assert_eq!(2, lines.len());
         //          1234567890    <- column numbers
         assert_eq!("argleybarg", lines[0]);
