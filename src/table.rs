@@ -169,19 +169,20 @@ impl TableFormatter {
                 } else {
                     let is_splittable = word_len > width || word_len > split_limit;
                     if is_splittable {
-                        let split = (word_start) + if width == line_len { 0 } else {(width - line_len) - hyphen_space};
-                        breaks.push((line_start, width - hyphen_space, split > word_start));
+                        let adjusted_width = width - hyphen_space;
+                        let split = (word_start) + if width == line_len { 0 } else {adjusted_width - line_len};
+                        breaks.push((line_start, adjusted_width, split > word_start));
                         line_start = split;
                         line_len = 0;
                         word_len = word_len - (split - word_start);
                         while word_len > 0 {
-                            if word_len <= width - hyphen_space {
+                            if word_len <= adjusted_width {
                                 line_len = word_len;
                                 word_len = 0;
                             } else {
                                 breaks.push((line_start, width, true));
-                                line_start += width - hyphen_space;
-                                word_len -= width - hyphen_space;
+                                line_start += adjusted_width;
+                                word_len -= adjusted_width;
                                 line_len = 0;
                             }
                         }
