@@ -1,7 +1,3 @@
-#![feature(test)]
-
-extern crate test;
-
 mod io;
 mod table;
 mod tasks;
