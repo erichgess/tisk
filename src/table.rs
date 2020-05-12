@@ -138,17 +138,18 @@ impl TableFormatter {
      * the given column width it will split on the word.
      */
     fn format_to_column(text: &String, width: usize, split_limit: usize) -> Vec<String> {
-        let mut breaks:Vec<(usize, usize)> = vec![]; // start and length of each slice into `text`
+        let mut breaks:Vec<(usize, usize, bool)> = vec![]; // start and length of each slice into `text`, true if midword
         let mut line_start = 0;
         let mut line_len = 0;
-
         let mut chars = text.chars().peekable();
+        let hyphen_space = if width > 4 {1} else {0};   // If the column is wide enough to have hyphens in split words
+                                                        // then this will make sure that an extra space is left to add the hyphen
         while let Some(c) = chars.next() {
             if c.is_whitespace() {
                 if line_len + 1 <= width {
                     line_len += 1;
                 } else {
-                    breaks.push((line_start, line_len));
+                    breaks.push((line_start, line_len, false));
                     line_start += line_len;
                     line_len = 1;
                 }
@@ -168,24 +169,24 @@ impl TableFormatter {
                 } else {
                     let is_splittable = word_len > width || word_len > split_limit;
                     if is_splittable {
-                        breaks.push((line_start, width));
-                        let split = word_start + (width - line_len);
+                        let split = (word_start) + if width == line_len { 0 } else {(width - line_len) - hyphen_space};
+                        breaks.push((line_start, width - hyphen_space, split > word_start));
                         line_start = split;
                         line_len = 0;
                         word_len = word_len - (split - word_start);
                         while word_len > 0 {
-                            if word_len <= width {
+                            if word_len <= width - hyphen_space {
                                 line_len = word_len;
                                 word_len = 0;
                             } else {
-                                breaks.push((line_start, width));
-                                line_start += width;
-                                word_len -= width;
+                                breaks.push((line_start, width, true));
+                                line_start += width - hyphen_space;
+                                word_len -= width - hyphen_space;
                                 line_len = 0;
                             }
                         }
                     } else {
-                        breaks.push((line_start, line_len));
+                        breaks.push((line_start, line_len, false));
                         line_start = word_start;
                         line_len = word_len;
                     }
@@ -193,7 +194,7 @@ impl TableFormatter {
             }
 
             if chars.peek().is_none() && line_len > 0{
-                breaks.push((line_start, line_len));
+                breaks.push((line_start, line_len, false));
             }
         }
 
@@ -201,7 +202,11 @@ impl TableFormatter {
         for b in breaks {
             let start = b.0;
             let end = start + b.1;
-            lines.push(text.get(start..end).unwrap().into());
+            let mut line = text.get(start..end).unwrap().to_owned();
+            if hyphen_space > 0 && b.2 {
+                line.push_str("-");
+            }
+            lines.push(line);
         }
         lines
     }
@@ -259,7 +264,7 @@ mod tests {
         assert_eq!(5, lines.len());
         //          1234567890    <- column numbers
         assert_eq!("the quick ", lines[0]);
-        assert_eq!("brown fox ", lines[1]);
+        assert_eq!("brown fox", lines[1]);
         assert_eq!("jumped ", lines[2]);
         assert_eq!("over the ", lines[3]);
         assert_eq!("lazy dog", lines[4]);
@@ -269,16 +274,17 @@ mod tests {
     fn split_word_longer_than_min_but_smaller_than_column_width() {
         let text = String::from("the quick brown fox fast jumped over the lazy dog");
         let lines = TableFormatter::format_to_column(&text, 10, 5);
-        assert_eq!(5, lines.len());
+        assert_eq!(6, lines.len());
         for line in lines.iter() {
             assert_eq!(true, line.len() <= 10);
         }
         //          1234567890    <- column numbers
         assert_eq!("the quick ", lines[0]);
         assert_eq!("brown fox ", lines[1]);
-        assert_eq!("fast jumpe", lines[2]);
-        assert_eq!("d over the", lines[3]);
-        assert_eq!(" lazy dog", lines[4]);
+        assert_eq!("fast jump-", lines[2]);
+        assert_eq!("ed over ", lines[3]);
+        assert_eq!("the lazy ", lines[4]);
+        assert_eq!("dog", lines[5]);
     }
 
     #[test]
@@ -287,8 +293,8 @@ mod tests {
         let lines = TableFormatter::format_to_column(&text, 10, 5);
         assert_eq!(2, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("argleybarg", lines[0]);
-        assert_eq!("ley", lines[1]);
+        assert_eq!("argleybar-", lines[0]);
+        assert_eq!("gley", lines[1]);
     }
 
     #[test]
@@ -303,12 +309,12 @@ mod tests {
     }
 
     #[test]
-    fn split_word_longer_than_column_width_shorter_than_min_word() {
+    fn split_word_longer_than_column_width_shorter_than_min_word_and_too_short_add_hyphen() {
         let text = String::from("bark");
         let lines = TableFormatter::format_to_column(&text, 3, 5);
         assert_eq!(2, lines.len());
         //          123    <- column numbers
-        assert_eq!("bar", lines[0]);
+        assert_eq!("bar", lines[0]);   // the column is too narrow to add a hyphen
         assert_eq!("k", lines[1]);
     }
 
