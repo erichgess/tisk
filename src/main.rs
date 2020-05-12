@@ -469,7 +469,7 @@ pub fn print_task_list(tasks: Vec<&tasks::Task>, checked_out_task: Option<u32>) 
         row.push(task.priority());
         row.push(task.notes().len());
 
-        let print_row = match (checked_out_task, tf.print_row(row)) {
+        let print_row = match (checked_out_task, tf.print_row(row).expect("Failed to format table row")) {
             (Some(id), row) if id == task.id() => checkout_style.apply_to(row),
             (_, row) => default_style.apply_to(row),
         };
@@ -503,7 +503,7 @@ pub fn print_notes(notes: Vec<&tasks::Note>) {
         let mut row = TableRow::new();
         row.push(idx);
         row.push(note.note());
-        print!("{}", tf.print_row(row));
+        print!("{}", tf.print_row(row).expect("Failed to format table row"));
         idx += 1;
     }
 }

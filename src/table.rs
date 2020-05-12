@@ -27,6 +27,7 @@ impl<'a> TableRow<'a> {
 }
 
 impl TableFormatter {
+
     pub fn new(width: usize) -> Self {
         Self {
             width,
@@ -94,7 +95,7 @@ impl TableFormatter {
 
     /// Takes a single table row returns a string with each cell
     /// formatted to fit within its column.
-    pub fn print_row(&self, cols: TableRow) -> String {
+    pub fn print_row(&self, cols: TableRow) -> Result<String, Box<dyn std::error::Error>> {
         use std::fmt::Write;
 
         // convert each row into a string
@@ -125,19 +126,19 @@ impl TableFormatter {
                         width = self.col_widths[col]
                     ).unwrap();
                     if col_text_fmt[col][line].1 {
-                        write!(row, "-").unwrap();
+                        write!(row, "-")?;
                     }
                 } else {
-                    write!(row, "{0: <width$}", "", width = self.col_widths[col]).unwrap();
+                    write!(row, "{0: <width$}", "", width = self.col_widths[col])?;
                 }
 
                 if col < cols.row.len() - 1 {
-                    write!(row, " ").unwrap();
+                    write!(row, " ")?;
                 }
             }
-            writeln!(row).unwrap();
+            writeln!(row)?;
         }
-        row
+        Ok(row)
     }
 }
 
