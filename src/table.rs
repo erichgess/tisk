@@ -124,13 +124,19 @@ impl TableFormatter {
         for line in 0..longest_column {
             for col in 0..cols.row.len() {
                 if line < col_text_fmt[col].len() {
-                    write!(row, 
-                        "{0: <width$}",
-                        col_text_fmt[col][line].0,
-                        width = self.col_widths[col]
-                    ).unwrap();
-                    if col_text_fmt[col][line].1 {
-                        write!(row, "-")?;
+                    let hyphenate = col_text_fmt[col][line].1;
+                    if hyphenate {
+                        write!(row, 
+                            "{0: <width$}-",
+                            col_text_fmt[col][line].0,
+                            width = self.col_widths[col] - 1,
+                        )?;
+                    } else {
+                        write!(row, 
+                            "{0: <width$}",
+                            col_text_fmt[col][line].0,
+                            width = self.col_widths[col],
+                        )?;
                     }
                 } else {
                     write!(row, "{0: <width$}", "", width = self.col_widths[col])?;
