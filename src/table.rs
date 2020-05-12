@@ -145,6 +145,20 @@ impl TableFormatter {
      * such that each string is no longer than the given width.  It will
      * attempt to break lines at spaces but if a word is longer than
      * the given column width it will split on the word.
+     *
+     * `text` - the text that needs to be formatted to fit within the width
+     * of a column.
+     * 
+     * `width` - the width of the column in characters.
+     * 
+     * `split_limit` - a word must be longer than this in order to be
+     * split across lines.  Unless `split_limit` > `width`, in which case,
+     * it will be ignored.
+     *
+     * Returns a vector of tuples where the first element is a slice from
+     * `text` representing a single line and the second element is a boolean
+     * indicating if the line should have a hyphen appended or not.  This
+     * will be `true` if a word was split across this line and the next.
      */
     fn format_to_column(text: &String, width: usize, split_limit: usize) -> Vec<(&str,bool)> {
         let mut breaks:Vec<(usize, usize, bool)> = vec![]; // start and length of each slice into `text`, true if midword
