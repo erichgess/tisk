@@ -1,3 +1,4 @@
+
 /// Format a table with a custom number of columns, column types,
 /// and rows. TableFormatter manages the width of each column and
 /// formats the contents of a cell to fit within its column.
@@ -331,5 +332,13 @@ mod tests {
         assert_eq!("jumped ", lines[3]);
         assert_eq!("over the ", lines[4]);
         assert_eq!("lazy dog", lines[5]);
+    }
+
+    #[bench]
+    fn bench(b: &mut test::Bencher) {
+        b.iter(||{
+            let text = String::from("argleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargley");
+            TableFormatter::format_to_column(&text, 10, 5);
+        });
     }
 }
