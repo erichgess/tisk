@@ -97,27 +97,36 @@ impl TableFormatter {
     pub fn print_row(&self, cols: TableRow) -> String {
         use std::fmt::Write;
 
-        let mut longest_column = 1;
+        // convert each row into a string
         let mut col_text = vec![];
         for i in 0..cols.row.len() {
-            let text = cols.row[i].to_string().clone();
+            col_text.push(cols.row[i].to_string());
+        }
+
+        let mut longest_column = 1;
+        let mut col_text_fmt = vec![];
+        for i in 0..cols.row.len() {
+            let text = &col_text[i];
             let fitted_text = TableFormatter::format_to_column(&text, self.col_widths[i], 7);
             if fitted_text.len() > longest_column {
                 longest_column = fitted_text.len();
             }
-            col_text.push(fitted_text);
+            col_text_fmt.push(fitted_text);
         }
 
         let mut row = String::new();
 
         for line in 0..longest_column {
             for col in 0..cols.row.len() {
-                if line < col_text[col].len() {
+                if line < col_text_fmt[col].len() {
                     write!(row, 
                         "{0: <width$}",
-                        col_text[col][line],
+                        col_text_fmt[col][line].0,
                         width = self.col_widths[col]
                     ).unwrap();
+                    if col_text_fmt[col][line].1 {
+                        write!(row, "-").unwrap();
+                    }
                 } else {
                     write!(row, "{0: <width$}", "", width = self.col_widths[col]).unwrap();
                 }
@@ -137,7 +146,7 @@ impl TableFormatter {
      * attempt to break lines at spaces but if a word is longer than
      * the given column width it will split on the word.
      */
-    fn format_to_column(text: &String, width: usize, split_limit: usize) -> Vec<String> {
+    fn format_to_column(text: &String, width: usize, split_limit: usize) -> Vec<(&str,bool)> {
         let mut breaks:Vec<(usize, usize, bool)> = vec![]; // start and length of each slice into `text`, true if midword
         let mut line_start = 0;
         let mut line_len = 0;
@@ -203,11 +212,9 @@ impl TableFormatter {
         for b in breaks {
             let start = b.0;
             let end = start + b.1;
-            let mut line = text.get(start..end).unwrap().to_owned();
-            if hyphen_space > 0 && b.2 {
-                line.push_str("-");
-            }
-            lines.push(line);
+            let mut line = text.get(start..end).unwrap();
+            let hyphenate = hyphen_space > 0 && b.2;
+            lines.push((line, hyphenate));
         }
         lines
     }
@@ -223,8 +230,8 @@ mod tests {
         let lines = TableFormatter::format_to_column(&text, 10, 5);
         assert_eq!(2, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("the quick ", lines[0]);
-        assert_eq!("brown fox", lines[1]);
+        assert_eq!(("the quick ", false), lines[0]);
+        assert_eq!(("brown fox", false), lines[1]);
     }
 
     #[test]
@@ -233,10 +240,10 @@ mod tests {
         let lines = TableFormatter::format_to_column(&text, 10, 5);
         assert_eq!(4, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("the quick ", lines[0]);
-        assert_eq!(" brown fox", lines[1]);
-        assert_eq!("   jumped ", lines[2]);
-        assert_eq!("  ", lines[3]);
+        assert_eq!(("the quick ", false), lines[0]);
+        assert_eq!((" brown fox", false), lines[1]);
+        assert_eq!(("   jumped ", false), lines[2]);
+        assert_eq!(("  ", false), lines[3]);
     }
 
     #[test]
@@ -245,8 +252,8 @@ mod tests {
         let lines = TableFormatter::format_to_column(&text, 10, 5);
         assert_eq!(2, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("the       ", lines[0]);
-        assert_eq!("     fox", lines[1]);
+        assert_eq!(("the       ", false), lines[0]);
+        assert_eq!(("     fox", false), lines[1]);
     }
 
     #[test]
@@ -255,7 +262,7 @@ mod tests {
         let lines = TableFormatter::format_to_column(&text, 10, 5);
         assert_eq!(1, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("the quick", lines[0]);
+        assert_eq!(("the quick", false), lines[0]);
     }
 
     #[test]
@@ -264,11 +271,11 @@ mod tests {
         let lines = TableFormatter::format_to_column(&text, 10, 5);
         assert_eq!(5, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("the quick ", lines[0]);
-        assert_eq!("brown fox", lines[1]);
-        assert_eq!("jumped ", lines[2]);
-        assert_eq!("over the ", lines[3]);
-        assert_eq!("lazy dog", lines[4]);
+        assert_eq!(("the quick ", false), lines[0]);
+        assert_eq!(("brown fox", false), lines[1]);
+        assert_eq!(("jumped ", false), lines[2]);
+        assert_eq!(("over the ", false), lines[3]);
+        assert_eq!(("lazy dog", false), lines[4]);
     }
 
     #[test]
@@ -277,15 +284,19 @@ mod tests {
         let lines = TableFormatter::format_to_column(&text, 10, 5);
         assert_eq!(6, lines.len());
         for line in lines.iter() {
-            assert_eq!(true, line.len() <= 10);
+            if line.1 == false {
+                assert_eq!(true, line.0.len() <= 10);
+            } else {
+                assert_eq!(true, line.0.len() <= 9);
+            }
         }
         //          1234567890    <- column numbers
-        assert_eq!("the quick ", lines[0]);
-        assert_eq!("brown fox ", lines[1]);
-        assert_eq!("fast jump-", lines[2]);
-        assert_eq!("ed over ", lines[3]);
-        assert_eq!("the lazy ", lines[4]);
-        assert_eq!("dog", lines[5]);
+        assert_eq!(("the quick ", false), lines[0]);
+        assert_eq!(("brown fox ", false), lines[1]);
+        assert_eq!(("fast jump", true), lines[2]);
+        assert_eq!(("ed over ", false), lines[3]);
+        assert_eq!(("the lazy ", false), lines[4]);
+        assert_eq!(("dog", false), lines[5]);
     }
 
     #[test]
@@ -294,8 +305,8 @@ mod tests {
         let lines = TableFormatter::format_to_column(&text, 10, 5);
         assert_eq!(2, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("argleybar-", lines[0]);
-        assert_eq!("gley", lines[1]);
+        assert_eq!(("argleybar", true), lines[0]);
+        assert_eq!(("gley", false), lines[1]);
     }
 
     #[test]
@@ -305,7 +316,8 @@ mod tests {
         assert_eq!(text.len(), lines.len());
         //          1234567890    <- column numbers
         for (idx, c) in text.chars().enumerate() {
-            assert_eq!(format!("{}", c), lines[idx]);
+            assert_eq!(format!("{}", c), lines[idx].0);
+            assert_eq!(false, lines[idx].1);
         }
     }
 
@@ -315,8 +327,8 @@ mod tests {
         let lines = TableFormatter::format_to_column(&text, 3, 5);
         assert_eq!(2, lines.len());
         //          123    <- column numbers
-        assert_eq!("bar", lines[0]);   // the column is too narrow to add a hyphen
-        assert_eq!("k", lines[1]);
+        assert_eq!(("bar", false), lines[0]);   // the column is too narrow to add a hyphen
+        assert_eq!(("k", false), lines[1]);
     }
 
     #[test]
@@ -325,11 +337,11 @@ mod tests {
         let lines = TableFormatter::format_to_column(&text, 10, 7);
         assert_eq!(6, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!("the quick ", lines[0]);
-        assert_eq!("brown fox ", lines[1]);
-        assert_eq!("fast ", lines[2]);
-        assert_eq!("jumped ", lines[3]);
-        assert_eq!("over the ", lines[4]);
-        assert_eq!("lazy dog", lines[5]);
+        assert_eq!(("the quick ", false), lines[0]);
+        assert_eq!(("brown fox ", false), lines[1]);
+        assert_eq!(("fast ", false), lines[2]);
+        assert_eq!(("jumped ", false), lines[3]);
+        assert_eq!(("over the ", false), lines[4]);
+        assert_eq!(("lazy dog", false), lines[5]);
     }
 }
