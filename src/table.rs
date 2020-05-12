@@ -365,18 +365,10 @@ mod tests {
     }
 
     #[bench]
-    fn bench(b: &mut test::Bencher) {
+    fn bench_column_formatting(b: &mut test::Bencher) {
         b.iter(||{
             let text = String::from("argleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargley");
             format_to_column(&text, 10, 5);
-        });
-    }
-
-    #[bench]
-    fn bench(b: &mut test::Bencher) {
-        b.iter(||{
-            let text = String::from("argleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargleyargleybargley");
-            TableFormatter::format_to_column(&text, 10, 5);
         });
     }
 }
