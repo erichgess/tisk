@@ -460,7 +460,7 @@ pub fn print_task_list(tasks: Vec<&tasks::Task>, checked_out_task: Option<u32>) 
     // Print the table
     let checkout_style = console::Style::new().green();
     let default_style = console::Style::new().white();
-    tf.print_header();
+    println!("{}", tf.print_header().expect("Failed to format table header"));
     for task in tasks.iter() {
         let mut row = TableRow::new();
         row.push(task.id());
@@ -494,7 +494,7 @@ pub fn print_notes(notes: Vec<&tasks::Note>) {
     // Print the column headers
     let mut tf = TableFormatter::new(cols as usize);
     tf.set_columns(vec![("ID", Some(id_width)), ("Note", None)]);
-    tf.print_header();
+    println!("{}", tf.print_header().expect("Failed to format table header"));
 
     // print each task, in the order given by the input vector
     let mut idx = 1;

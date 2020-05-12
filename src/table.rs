@@ -77,21 +77,24 @@ impl TableFormatter {
     /// Returns a formatted string containing the label for each
     /// column positioned and formatted to align with the formatted
     /// table rows.
-    pub fn print_header(&self) {
+    pub fn print_header(&self) -> Result<String,Box<dyn std::error::Error>> {
+        use std::fmt::Write;
+
         use console::Style;
         let ul = Style::new().underlined();
         let num_cols = self.cols.len();
+        let mut row = String::new();
         for i in 0..num_cols {
-            print!(
+            write!( row,
                 "{0: <width$}",
                 ul.apply_to(&self.cols[i]),
                 width = self.col_widths[i]
-            );
+            )?;
             if i < num_cols - 1 {
-                print!(" ");
+                write!(row, " ")?;
             }
         }
-        println!();
+        Ok(row)
     }
 
     /// Takes a single table row returns a string with each cell
