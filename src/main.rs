@@ -354,10 +354,9 @@ fn handle_note(
     };
 
     if args.is_present("list") || !args.is_present("NOTE") {
-        let notes = tasks
-            .get(id)
-            .ok_or(format!("Could not found task with ID {}", id))?
-            .notes();
+        let task = tasks.get(id).ok_or(format!("Could not find task with id {}", id))?;
+        let notes = task.notes();
+        print_task_list(vec![task], None);
         print_notes(notes);
 
         Ok(vec![CommandEffect::Read])
