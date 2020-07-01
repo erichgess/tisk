@@ -125,17 +125,16 @@ impl TableFormatter {
             for col in 0..cols.row.len() {
                 if line < col_text_fmt[col].len() {
                     let hyphenate = col_text_fmt[col][line].1;
-                    let text = col_text_fmt[col][line].0.replace("\n", "");  // The formatter has already split \n into separate lines
                     if hyphenate {
                         write!(row, 
                             "{0: <width$}-",
-                            text,
+                            col_text_fmt[col][line].0,
                             width = self.col_widths[col] - 1,
                         )?;
                     } else {
                         write!(row, 
                             "{0: <width$}",
-                            text,
+                            col_text_fmt[col][line].0,
                             width = self.col_widths[col],
                         )?;
                     }
@@ -176,10 +175,10 @@ mod formatting {
      * will be `true` if a word was split across this line and the next.
      *
      * Newline characters, '\n', will cause a new line to be created in the
-     * vector of lines.  The new line character will NOT be removed from the
-     * text, so it should be filtered out in the printing stage.
+     * vector of lines.  The new line character WILL be removed, as it no
+     * longer serves a formatting purpose and keeping it would act as duplicaation.
      */
-    pub fn format_to_column(text: &String, width: usize, split_limit: usize) -> Vec<(&str,Hyphenate)> {
+    pub fn format_to_column(text: &String, width: usize, split_limit: usize) -> Vec<(String,Hyphenate)> {
         let mut breaks:Vec<(usize, usize, bool)> = vec![]; // start and length of each slice into `text`, true if midword
         let mut line_start = 0;
         let mut line_len = 0;
@@ -245,7 +244,7 @@ mod formatting {
         for b in breaks {
             let start = b.0;
             let end = start + b.1;
-            let line = text.get(start..end).unwrap();
+            let line = text.get(start..end).unwrap().replace("\n", "");
             let hyphenate = hyphen_space > 0 && b.2;
             lines.push((line, hyphenate));
         }
@@ -263,8 +262,8 @@ mod tests {
         let lines = format_to_column(&text, 10, 5);
         assert_eq!(2, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!(("the quick ", false), lines[0]);
-        assert_eq!(("brown fox", false), lines[1]);
+        assert_eq!(("the quick ".into(), false), lines[0]);
+        assert_eq!(("brown fox".into(), false), lines[1]);
     }
 
     #[test]
@@ -273,10 +272,10 @@ mod tests {
         let lines = format_to_column(&text, 10, 5);
         assert_eq!(4, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!(("the quick ", false), lines[0]);
-        assert_eq!((" brown fox", false), lines[1]);
-        assert_eq!(("   jumped ", false), lines[2]);
-        assert_eq!(("  ", false), lines[3]);
+        assert_eq!(("the quick ".into(), false), lines[0]);
+        assert_eq!((" brown fox".into(), false), lines[1]);
+        assert_eq!(("   jumped ".into(), false), lines[2]);
+        assert_eq!(("  ".into(), false), lines[3]);
     }
 
     #[test]
@@ -285,8 +284,8 @@ mod tests {
         let lines = format_to_column(&text, 10, 5);
         assert_eq!(2, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!(("the       ", false), lines[0]);
-        assert_eq!(("     fox", false), lines[1]);
+        assert_eq!(("the       ".into(), false), lines[0]);
+        assert_eq!(("     fox".into(), false), lines[1]);
     }
 
     #[test]
@@ -295,7 +294,7 @@ mod tests {
         let lines = format_to_column(&text, 10, 5);
         assert_eq!(1, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!(("the quick", false), lines[0]);
+        assert_eq!(("the quick".into(), false), lines[0]);
     }
 
     #[test]
@@ -304,11 +303,11 @@ mod tests {
         let lines = format_to_column(&text, 10, 5);
         assert_eq!(5, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!(("the quick ", false), lines[0]);
-        assert_eq!(("brown fox", false), lines[1]);
-        assert_eq!(("jumped ", false), lines[2]);
-        assert_eq!(("over the ", false), lines[3]);
-        assert_eq!(("lazy dog", false), lines[4]);
+        assert_eq!(("the quick ".into(), false), lines[0]);
+        assert_eq!(("brown fox".into(), false), lines[1]);
+        assert_eq!(("jumped ".into(), false), lines[2]);
+        assert_eq!(("over the ".into(), false), lines[3]);
+        assert_eq!(("lazy dog".into(), false), lines[4]);
     }
 
     #[test]
@@ -324,12 +323,12 @@ mod tests {
             }
         }
         //          1234567890    <- column numbers
-        assert_eq!(("the quick ", false), lines[0]);
-        assert_eq!(("brown fox ", false), lines[1]);
-        assert_eq!(("fast jump", true), lines[2]);
-        assert_eq!(("ed over ", false), lines[3]);
-        assert_eq!(("the lazy ", false), lines[4]);
-        assert_eq!(("dog", false), lines[5]);
+        assert_eq!(("the quick ".into(), false), lines[0]);
+        assert_eq!(("brown fox ".into(), false), lines[1]);
+        assert_eq!(("fast jump".into(), true), lines[2]);
+        assert_eq!(("ed over ".into(), false), lines[3]);
+        assert_eq!(("the lazy ".into(), false), lines[4]);
+        assert_eq!(("dog".into(), false), lines[5]);
     }
 
     #[test]
@@ -338,8 +337,8 @@ mod tests {
         let lines = format_to_column(&text, 10, 5);
         assert_eq!(2, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!(("argleybar", true), lines[0]);
-        assert_eq!(("gley", false), lines[1]);
+        assert_eq!(("argleybar".into(), true), lines[0]);
+        assert_eq!(("gley".into(), false), lines[1]);
     }
 
     #[test]
@@ -360,8 +359,8 @@ mod tests {
         let lines = format_to_column(&text, 3, 5);
         assert_eq!(2, lines.len());
         //          123    <- column numbers
-        assert_eq!(("bar", false), lines[0]);   // the column is too narrow to add a hyphen
-        assert_eq!(("k", false), lines[1]);
+        assert_eq!(("bar".into(), false), lines[0]);   // the column is too narrow to add a hyphen
+        assert_eq!(("k".into(), false), lines[1]);
     }
 
     #[test]
@@ -370,12 +369,12 @@ mod tests {
         let lines = format_to_column(&text, 10, 7);
         assert_eq!(6, lines.len());
         //          1234567890    <- column numbers
-        assert_eq!(("the quick ", false), lines[0]);
-        assert_eq!(("brown fox ", false), lines[1]);
-        assert_eq!(("fast ", false), lines[2]);
-        assert_eq!(("jumped ", false), lines[3]);
-        assert_eq!(("over the ", false), lines[4]);
-        assert_eq!(("lazy dog", false), lines[5]);
+        assert_eq!(("the quick ".into(), false), lines[0]);
+        assert_eq!(("brown fox ".into(), false), lines[1]);
+        assert_eq!(("fast ".into(), false), lines[2]);
+        assert_eq!(("jumped ".into(), false), lines[3]);
+        assert_eq!(("over the ".into(), false), lines[4]);
+        assert_eq!(("lazy dog".into(), false), lines[5]);
     }
 
     /*#[bench]
