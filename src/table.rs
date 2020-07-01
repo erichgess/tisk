@@ -125,16 +125,17 @@ impl TableFormatter {
             for col in 0..cols.row.len() {
                 if line < col_text_fmt[col].len() {
                     let hyphenate = col_text_fmt[col][line].1;
+                    let text = col_text_fmt[col][line].0.replace("\n", "");  // The formatter has already split \n into separate lines
                     if hyphenate {
                         write!(row, 
                             "{0: <width$}-",
-                            col_text_fmt[col][line].0,
+                            text,
                             width = self.col_widths[col] - 1,
                         )?;
                     } else {
                         write!(row, 
                             "{0: <width$}",
-                            col_text_fmt[col][line].0,
+                            text,
                             width = self.col_widths[col],
                         )?;
                     }
@@ -173,6 +174,10 @@ mod formatting {
      * `text` representing a single line and the second element is a boolean
      * indicating if the line should have a hyphen appended or not.  This
      * will be `true` if a word was split across this line and the next.
+     *
+     * Newline characters, '\n', will cause a new line to be created in the
+     * vector of lines.  The new line character will NOT be removed from the
+     * text, so it should be filtered out in the printing stage.
      */
     pub fn format_to_column(text: &String, width: usize, split_limit: usize) -> Vec<(&str,Hyphenate)> {
         let mut breaks:Vec<(usize, usize, bool)> = vec![]; // start and length of each slice into `text`, true if midword
@@ -183,7 +188,7 @@ mod formatting {
                                                         // then this will make sure that an extra space is left to add the hyphen
         while let Some(c) = chars.next() {
             if c.is_whitespace() {
-                if line_len + 1 <= width {
+                if line_len + 1 <= width && c != '\n' {
                     line_len += 1;
                 } else {
                     breaks.push((line_start, line_len, false));
