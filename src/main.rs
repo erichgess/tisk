@@ -464,7 +464,7 @@ pub fn print_task_list(tasks: Vec<&tasks::Task>, checked_out_task: Option<u32>) 
         let mut row = TableRow::new();
         row.push(task.id());
         row.push(task.created_at().format("%Y-%m-%d"));
-        row.push(prepare_name(task.name()));
+        row.push(prepare_text_for_rendering(task.name()));
         row.push(task.priority());
         row.push(task.notes().len());
 
@@ -476,10 +476,11 @@ pub fn print_task_list(tasks: Vec<&tasks::Task>, checked_out_task: Option<u32>) 
         print!("{}", print_row);
     }
 
-    /// Do cosmetic changes to the name so that it will render properly.
-    fn prepare_name(s: &str) -> String {
-        s.replace("\n", " ")
-    }
+}
+
+/// Do cosmetic changes to `s` so that it will render properly.
+fn prepare_text_for_rendering(s: &str) -> String {
+    s.replace("\n", " ")
 }
 
 pub fn print_notes(notes: Vec<&tasks::Note>) {
@@ -506,7 +507,7 @@ pub fn print_notes(notes: Vec<&tasks::Note>) {
         //Note::print_note(task, idx, id_width, note_width);
         let mut row = TableRow::new();
         row.push(idx);
-        row.push(note.note());
+        row.push(prepare_text_for_rendering(note.note()));
         print!("{}", tf.print_row(row).expect("Failed to format table row"));
         idx += 1;
     }
