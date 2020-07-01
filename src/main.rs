@@ -464,7 +464,7 @@ pub fn print_task_list(tasks: Vec<&tasks::Task>, checked_out_task: Option<u32>) 
         let mut row = TableRow::new();
         row.push(task.id());
         row.push(task.created_at().format("%Y-%m-%d"));
-        row.push(task.name());
+        row.push(prepare_name(task.name()));
         row.push(task.priority());
         row.push(task.notes().len());
 
@@ -474,6 +474,11 @@ pub fn print_task_list(tasks: Vec<&tasks::Task>, checked_out_task: Option<u32>) 
         };
 
         print!("{}", print_row);
+    }
+
+    /// Do cosmetic changes to the name so that it will render properly.
+    fn prepare_name(s: &str) -> String {
+        s.replace("\n", " ")
     }
 }
 
