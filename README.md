@@ -8,6 +8,17 @@ Tasks are also easily used for keeping notes about work, so that when working
 on a task you can easily record thoughts, notes, and reminders.
 
 ## Usage
+### Installation
+Installation is done with `cargo`:
+
+```
+cargo install --path .
+```
+
+This will build the `tisk` project and then copy the binary to your local `cargo`
+installation bin directory.  As long as that path is in your `PATH` env variable
+then `tisk` will be accessible from the command line.
+
 ### Initializing a Tisk Project
 Like git, the first thing that must be done to track tasks for a project is
 to initialize it as a Tisk project.  Run `tisk init` in the project's root
